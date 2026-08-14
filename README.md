@@ -130,6 +130,16 @@ routes/orgs.js           org creation, members, invites
 routes/stages.js         pipeline (stage/sub-step template) admin
 routes/locations.js      location CRUD, checklist updates, comments
 routes/notifications.js  notification settings + manual send
+routes/property-sourcing.js 591/Google Sheet property sourcing + scoring
 cron/notify.js           hourly scheduler, checks each org's send time
 public/index.html        the entire frontend (no build step)
+public/location/index.html manual + automated property review frontend
 ```
+
+## Property Radar sourcing
+
+The Property Radar workflow lives in `extensions/591-radar/`,
+`routes/property-sourcing.js`, and `public/location/index.html`.
+
+See `docs/property-sourcing.md` for the 591 Extension → Google Sheet →
+Automated Listings → Scoring Rules → Location Review workflow.

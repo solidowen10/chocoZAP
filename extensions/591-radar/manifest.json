@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "591 Property Radar POC",
+  "version": "0.1.0",
+  "description": "Scan the currently open 591 search results page and export visible listing data as JSON.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://rent.591.com.tw/*",
+    "http://rent.591.com.tw/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*"
+  ],
+  "action": {
+    "default_title": "591 Radar",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://rent.591.com.tw/*",
+        "http://rent.591.com.tw/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

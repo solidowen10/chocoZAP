@@ -23,6 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Public location report API
 app.use(require('./routes/location-report'));
 app.use(require('./routes/location-sheet-sync'));
+app.use(require('./routes/property-sourcing'));
 
 // Authenticated APIs
 app.use(require('./routes/orgs'));
