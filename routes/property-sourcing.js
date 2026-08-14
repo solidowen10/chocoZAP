@@ -1,8 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
-const { parse } = require('csv-parse/sync');
+const { google } = require('googleapis');
 
 const {
   HUMAN_FIELDS,
@@ -87,14 +86,46 @@ function requireSyncToken(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
-function propertySheetCsvUrl() {
-  if (process.env.PROPERTY_SOURCING_SHEET_CSV_URL) {
-    return process.env.PROPERTY_SOURCING_SHEET_CSV_URL;
+async function readPropertySheetRows() {
+  const spreadsheetId = process.env.PROPERTY_SOURCING_SHEET_ID;
+  const sheetTab =
+    process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB;
+
+  if (!spreadsheetId) {
+    throw new Error('PROPERTY_SOURCING_SHEET_ID is not configured');
   }
 
-  const sheetId = process.env.PROPERTY_SOURCING_SHEET_ID || DEFAULT_SHEET_ID;
-  const sheetTab = process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB;
-  return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out%3Acsv&sheet=${encodeURIComponent(sheetTab)}`;
+  const auth = new google.auth.GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
+
+  const sheets = google.sheets({
+    version: 'v4',
+    auth,
+  });
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${sheetTab}'!A:ZZ`,
+  });
+
+  const values = response.data.values || [];
+
+  if (!values.length) {
+    return [];
+  }
+
+  const headers = values[0];
+
+  return values.slice(1).map((valuesRow) => {
+    const row = {};
+
+    headers.forEach((header, index) => {
+      row[header] = valuesRow[index] ?? '';
+    });
+
+    return row;
+  });
 }
 
 function scoredPayload(store = readStore(), config = readConfig()) {
@@ -162,22 +193,7 @@ router.post('/api/property-sourcing/import', requireSyncToken, (req, res) => {
 
 router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, res) => {
   try {
-    const url = propertySheetCsvUrl();
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return res.status(502).json({
-        error: 'sheet_fetch_failed',
-        status: response.status,
-      });
-    }
-
-    const csv = await response.text();
-    const rows = parse(csv, {
-      columns: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-    });
+    const rows = await readPropertySheetRows();
     const listings = rows
       .map((row) => listingFromSheetRow(row))
       .filter((listing) => listingIdentity(listing) && listing.url);
