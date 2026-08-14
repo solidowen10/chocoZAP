@@ -9,3 +9,7 @@ data/
 logs/
 *.log
 .DS_Store
+
+# Backup files
+*.bak
+*.bak*
