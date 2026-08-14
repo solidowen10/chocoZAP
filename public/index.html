@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant-TW">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Site Ledger — Expansion Tracker</title>
+<title>chocoZAP 台灣 - Tracker</title>
+<link rel="icon" type="image/png" href="/assets/choco-logo.png">
+<link rel="apple-touch-icon" href="/assets/choco-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #1a2332;
@@ -27,10 +29,10 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Noto Sans TC', 'Inter', sans-serif;
     font-size: 14px;
   }
-  h1, h2, h3, .display { font-family: 'Space Grotesk', sans-serif; }
+  h1, h2, h3, .display { font-family: 'Noto Sans TC', 'Space Grotesk', sans-serif; }
   code, .mono, .code { font-family: 'IBM Plex Mono', monospace; }
   a { color: inherit; }
   button { font-family: inherit; cursor: pointer; }
@@ -77,7 +79,14 @@
     display: flex; flex-direction: column; padding: 20px 14px;
   }
   .brand { display: flex; align-items: center; gap: 9px; padding: 0 6px 22px; }
-  .brand .mark { width: 26px; height: 26px; background: var(--amber); border-radius: 3px; transform: rotate(-4deg); }
+  .brand .mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    object-fit: contain;
+    background: white;
+    padding: 2px;
+  }
   .brand .name { font-family: 'Space Grotesk'; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
   .org-switch {
     background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; padding: 9px 10px;
@@ -143,6 +152,24 @@
   .progress-bar > div { height: 100%; background: var(--moss); }
   .flag-blocked { color: var(--rust); font-size: 11px; font-weight: 600; }
 
+  /* Timeline table */
+  .timeline-table { width: 100%; border-collapse: collapse; }
+  .timeline-table th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--slate-2); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  .timeline-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .timeline-table tr:hover { background: rgba(0,0,0,0.02); cursor: pointer; }
+  .due-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 88px; padding: 3px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; border: 1px solid var(--border);
+  }
+  .due-tag.overdue { background: rgba(193,85,63,0.12); border-color: var(--rust); color: var(--rust); }
+  .due-tag.soon { background: rgba(232,161,61,0.16); border-color: var(--amber); color: #8a5a13; }
+  .due-tag.later { background: white; color: var(--slate); }
+  .due-tag.done { background: white; border-color: var(--border); color: var(--moss); }
+
   /* Kanban */
   .board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; }
   .col { width: 250px; flex-shrink: 0; }
@@ -174,15 +201,24 @@
   }
   .substep-row.done { color: var(--slate); }
   .substep-row.done .substep-name { text-decoration: line-through; }
+  .substep-row.overdue { border-left: 3px solid var(--rust); padding-left: 11px; }
   .status-select {
     font-size: 11px; border-radius: 3px; border: 1px solid var(--border); padding: 3px 6px; font-family: inherit;
-    background: white;
+    background: white; flex: 0 0 128px; width: 128px;
   }
   .status-select.not_started { color: var(--slate-2); }
   .status-select.in_progress { color: var(--blue); border-color: var(--blue); }
   .status-select.done { color: var(--moss); border-color: var(--moss); }
   .status-select.blocked { color: var(--rust); border-color: var(--rust); }
   .substep-name { flex: 1; }
+  .substep-meta { flex: 0 0 132px; text-align: right; }
+  .due-input {
+    width: 132px; padding: 4px 6px; font-size: 11px; color: var(--slate);
+  }
+  .completed-tag {
+    display: inline-flex; color: var(--moss); font-size: 11px; font-weight: 600;
+    border-bottom: 1px dashed var(--moss); cursor: pointer;
+  }
   .milestone-flag { font-size: 10px; color: var(--amber); }
 
   .side-panel { background: var(--paper-2); border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin-bottom: 16px; }
@@ -327,6 +363,7 @@ async function render() {
 
   if (hash.startsWith('#/dashboard')) return renderShell(app, 'dashboard', renderDashboard);
   if (hash.startsWith('#/workspace')) return renderShell(app, 'workspace', renderWorkspace);
+  if (hash.startsWith('#/timeline')) return renderShell(app, 'timeline', renderTimeline);
   if (hash.startsWith('#/location/')) return renderShell(app, 'workspace', (el) => renderLocationDetail(el, hash.split('/')[2]));
   if (hash.startsWith('#/admin')) return renderShell(app, 'admin', renderAdmin);
   if (hash.startsWith('#/orgs')) return renderOrgPicker(app);
@@ -340,21 +377,21 @@ function renderLogin(app) {
   app.innerHTML = `
     <div class="login-screen">
       <div class="login-card">
-        <div class="login-mark">SL</div>
-        <h1>Site Ledger</h1>
-        <p class="sub">Track every location from scouting to grand opening.</p>
+        <div class="login-mark">CZ</div>
+        <h1>chocoZAP 台灣</h1>
+        <p class="sub">從選址到開幕，追蹤每一間門市的進度。</p>
         <button class="btn-line" onclick="location.href='/auth/line/login'">
-          Continue with LINE
+          使用 LINE 登入
         </button>
         ${!isProd ? `
-          <button class="btn-dev" onclick="devLogin()">Dev login (no LINE credentials needed)</button>
+          <button class="btn-dev" onclick="devLogin()">開發測試登入（不需要 LINE 憑證）</button>
         ` : ''}
       </div>
     </div>
   `;
 }
 async function devLogin() {
-  const name = prompt('Dev user name (e.g. "Owen" or "Manager Chen"):', 'Owen');
+  const name = prompt('測試使用者名稱（例如：「Owen」或「陳經理」）：', 'Owen');
   if (!name) return;
   location.href = '/auth/dev-login?name=' + encodeURIComponent(name);
 }
@@ -363,11 +400,11 @@ async function renderJoin(app, code) {
   if (!state.user) {
     app.innerHTML = `
       <div class="login-screen"><div class="login-card">
-        <div class="login-mark">SL</div>
-        <h1>Join organization</h1>
-        <p class="sub">Log in first to accept this invite.</p>
-        <button class="btn-line" onclick="location.href='/auth/line/login?invite=${code}'">Continue with LINE</button>
-        <button class="btn-dev" onclick="devLoginThenJoin('${code}')">Dev login</button>
+        <div class="login-mark">CZ</div>
+        <h1>加入工作區</h1>
+        <p class="sub">請先登入，才能接受這個邀請。</p>
+        <button class="btn-line" onclick="location.href='/auth/line/login?invite=${code}'">使用 LINE 登入</button>
+        <button class="btn-dev" onclick="devLoginThenJoin('${code}')">開發測試登入</button>
       </div></div>`;
     return;
   }
@@ -378,14 +415,14 @@ async function renderJoin(app, code) {
     const me = await api('GET', '/auth/me');
     state.memberships = me.memberships;
     await loadOrgData();
-    toast(`Joined ${result.org.name}`);
+    toast(`已加入 ${result.org.name}`);
     location.hash = '#/dashboard';
   } catch (e) {
-    app.innerHTML = `<div class="empty-state"><h2>Invite link invalid or expired</h2><p>${e.message}</p></div>`;
+    app.innerHTML = `<div class="empty-state"><h2>邀請連結無效或已過期</h2><p>${e.message}</p></div>`;
   }
 }
 async function devLoginThenJoin(code) {
-  const name = prompt('Dev user name:', 'New Teammate');
+  const name = prompt('測試使用者名稱：', '新成員');
   if (!name) return;
   sessionStorage.setItem('pendingInvite', code);
   location.href = '/auth/dev-login?name=' + encodeURIComponent(name);
@@ -395,18 +432,18 @@ async function devLoginThenJoin(code) {
 function renderOrgPicker(app) {
   app.innerHTML = `
     <div class="login-screen"><div class="login-card" style="width:440px;">
-      <div class="login-mark">SL</div>
-      <h1>Choose a workspace</h1>
-      <p class="sub">${state.memberships.length ? 'Pick an organization or create a new one.' : 'You are not part of any organization yet.'}</p>
+      <div class="login-mark">CZ</div>
+      <h1>選擇工作區</h1>
+      <p class="sub">${state.memberships.length ? '選擇一個工作區，或建立新的工作區。' : '你目前還沒有加入任何工作區。'}</p>
       <div style="text-align:left; margin-bottom: 16px;">
         ${state.memberships.map((m) => `
           <div class="card" onclick="selectOrg('${m.org_id}')" style="display:flex; justify-content:space-between; align-items:center;">
             <div><div class="title" style="margin:0;">${m.org_name}</div></div>
-            <span class="role-pill">${m.role}</span>
+            <span class="role-pill">${roleLabel(m.role)}</span>
           </div>
         `).join('') || ''}
       </div>
-      <button class="btn" style="width:100%;" onclick="createOrgPrompt()">+ Create new organization</button>
+      <button class="btn" style="width:100%;" onclick="createOrgPrompt()">+ 建立新工作區</button>
     </div></div>
   `;
 }
@@ -417,7 +454,7 @@ async function selectOrg(orgId) {
   location.hash = '#/dashboard';
 }
 async function createOrgPrompt() {
-  const name = prompt('Organization name (e.g. "CRDN Fitness Expansion"):');
+  const name = prompt('工作區名稱（例如：「chocoZAP 台灣」）：');
   if (!name) return;
   const { org } = await api('POST', '/orgs', { name });
   const me = await api('GET', '/auth/me');
@@ -432,24 +469,25 @@ function renderShell(app, activeNav, viewFn) {
   app.innerHTML = `
     <div class="shell">
       <div class="sidebar">
-        <div class="brand"><div class="mark"></div><div class="name">Site Ledger</div></div>
+        <div class="brand"><img class="mark" src="/assets/choco-logo.png" alt="chocoZAP台灣 logo"><div class="name">chocoZAP 台灣</div></div>
         <div class="org-switch" onclick="location.hash='#/orgs'">
-          Workspace
+          工作區
           <span class="org-name">${org ? org.org_name : ''}</span>
         </div>
         <div class="nav">
-          <a href="#/dashboard" class="${activeNav === 'dashboard' ? 'active' : ''}">Dashboard</a>
-          <a href="#/workspace" class="${activeNav === 'workspace' ? 'active' : ''}">Workspace board</a>
-          ${roleAtLeast(mem.role, 'admin') ? `<a href="#/admin" class="${activeNav === 'admin' ? 'active' : ''}">Admin</a>` : ''}
+          <a href="#/dashboard" class="${activeNav === 'dashboard' ? 'active' : ''}">總覽</a>
+          <a href="#/workspace" class="${activeNav === 'workspace' ? 'active' : ''}">工作看板</a>
+          <a href="#/timeline" class="${activeNav === 'timeline' ? 'active' : ''}">時程表</a>
+          ${roleAtLeast(mem.role, 'admin') ? `<a href="#/admin" class="${activeNav === 'admin' ? 'active' : ''}">管理</a>` : ''}
         </div>
         <div class="sidebar-foot">
           <div class="me">
             <div class="avatar"></div>
             <div>
               <div class="me-name">${state.user.display_name}</div>
-              <div class="me-role">${mem.role}</div>
+              <div class="me-role">${roleLabel(mem.role)}</div>
             </div>
-            <span class="logout-link" onclick="logout()">Sign out</span>
+            <span class="logout-link" onclick="logout()">登出</span>
           </div>
         </div>
       </div>
@@ -475,15 +513,15 @@ async function renderDashboard(main) {
 
   main.innerHTML = `
     <div class="page-head">
-      <div><h1>Dashboard</h1><div class="sub">${totalLocs} locations tracked · ${opened} opened · ${blocked} with blockers</div></div>
-      ${roleAtLeast(mem.role, 'editor') ? `<button class="btn" onclick="newLocationPrompt()">+ New location</button>` : ''}
-      ${roleAtLeast(mem.role, 'manager') ? `<button class="btn secondary" onclick="sendDigestNow()">Send LINE digest now</button>` : ''}
+      <div><h1>總覽</h1><div class="sub">追蹤 ${totalLocs} 間門市 · ${opened} 間已開幕 · ${blocked} 間有阻塞項目</div></div>
+      ${roleAtLeast(mem.role, 'editor') ? `<button class="btn" onclick="newLocationPrompt()">+ 新增門市</button>` : ''}
+      ${roleAtLeast(mem.role, 'manager') ? `<button class="btn secondary" onclick="sendDigestNow()">立即發送 LINE 摘要</button>` : ''}
     </div>
     ${totalLocs === 0 ? `
-      <div class="empty-state"><h2>No locations yet</h2><p>Add your first site to start tracking it from scouting to grand opening.</p></div>
+      <div class="empty-state"><h2>尚未建立門市</h2><p>新增第一間門市後，就能從選址一路追蹤到開幕。</p></div>
     ` : `
       <table class="loc-table">
-        <thead><tr><th>Location</th><th>Stage</th><th>Progress</th><th>Target open</th><th>Owner</th><th></th></tr></thead>
+        <thead><tr><th>門市</th><th>階段</th><th>進度</th><th>目標開幕日</th><th>負責人</th><th></th></tr></thead>
         <tbody>
           ${state.locations.map((l) => `
             <tr onclick="location.hash='#/location/${l.id}'">
@@ -498,7 +536,7 @@ async function renderDashboard(main) {
               </td>
               <td class="loc-code">${l.target_open_date || '—'}</td>
               <td class="loc-code">${l.owner_name || '—'}</td>
-              <td>${l.blocked_count > 0 ? `<span class="flag-blocked">⚠ ${l.blocked_count} blocked</span>` : ''}</td>
+              <td>${l.blocked_count > 0 ? `<span class="flag-blocked">⚠ ${l.blocked_count} 個阻塞</span>` : ''}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -508,18 +546,18 @@ async function renderDashboard(main) {
 }
 
 async function newLocationPrompt() {
-  const name = prompt('Location name (e.g. "Taichung – Xitun"):');
+  const name = prompt('門市名稱（例如：「台中－西屯」）：');
   if (!name) return;
-  const city = prompt('City (optional):', '') || null;
-  const target_open_date = prompt('Target open date (YYYY-MM-DD, optional):', '') || null;
+  const city = prompt('城市（選填）：', '') || null;
+  const target_open_date = prompt('目標開幕日（YYYY-MM-DD，選填）：', '') || null;
   await api('POST', withOrg('/orgs/:orgId/locations'.replace(':orgId', state.orgId)), { name, city, target_open_date });
-  toast('Location added');
+  toast('已新增門市');
   render();
 }
 async function sendDigestNow() {
-  toast('Sending LINE digest…');
+  toast('正在發送 LINE 摘要…');
   const result = await api('POST', withOrg('/orgs/:orgId/notifications/send-now'.replace(':orgId', state.orgId)));
-  toast(`Digest sent to ${result.sent_to || 0} recipient(s)`);
+  toast(`摘要已發送給 ${result.sent_to || 0} 位收件人`);
 }
 
 // ----------------------------------------------------------- Workspace ----
@@ -528,8 +566,8 @@ async function renderWorkspace(main) {
   const mem = currentMembership();
   main.innerHTML = `
     <div class="page-head">
-      <div><h1>Workspace board</h1><div class="sub">All locations grouped by stage</div></div>
-      ${roleAtLeast(mem.role, 'editor') ? `<button class="btn" onclick="newLocationPrompt()">+ New location</button>` : ''}
+      <div><h1>工作看板</h1><div class="sub">依階段整理所有門市</div></div>
+      ${roleAtLeast(mem.role, 'editor') ? `<button class="btn" onclick="newLocationPrompt()">+ 新增門市</button>` : ''}
     </div>
     <div class="board">
       ${state.pipeline.map((stage) => {
@@ -555,11 +593,51 @@ async function renderWorkspace(main) {
                   ${l.blocked_count > 0 ? `<span class="flag-blocked">⚠ ${l.blocked_count}</span>` : ''}
                 </div>
               </div>
-            `).join('') || `<div style="color:var(--slate-2); font-size:12px; padding:8px 2px;">No locations</div>`}
+            `).join('') || `<div style="color:var(--slate-2); font-size:12px; padding:8px 2px;">目前沒有門市</div>`}
           </div>
         `;
       }).join('')}
     </div>
+  `;
+}
+
+// ------------------------------------------------------------ Timeline ----
+async function renderTimeline(main) {
+  const { items } = await api('GET', withOrg('/orgs/:orgId/timeline'.replace(':orgId', state.orgId)));
+  const today = todayDateString();
+  const soonCutoff = addDaysDateString(today, 7);
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div><h1>時程表</h1><div class="sub">所有進行中門市的到期待辦事項</div></div>
+    </div>
+    ${items.length === 0 ? `
+      <div class="empty-state"><h2>尚未設定到期日</h2><p>在門市詳細頁替待辦事項加入到期日後，這裡就會建立時程表。</p></div>
+    ` : `
+      <table class="timeline-table">
+        <thead><tr><th>門市</th><th>階段</th><th>項目</th><th>到期日</th><th>狀態</th></tr></thead>
+        <tbody>
+          ${items.map((item) => {
+            const dueClass = item.status === 'done'
+              ? 'done'
+              : item.due_date < today
+                ? 'overdue'
+                : item.due_date <= soonCutoff
+                  ? 'soon'
+                  : 'later';
+            return `
+              <tr onclick="location.hash='#/location/${item.location_id}'">
+                <td><div class="loc-name">${escapeHtml(item.location_name)}</div></td>
+                <td><span class="badge" style="background:${item.stage_color || '#999'}"><span class="dot"></span>${escapeHtml(item.stage_name || '—')}</span></td>
+                <td>${escapeHtml(item.substep_name)}</td>
+                <td><span class="due-tag ${dueClass}">${item.due_date}</span></td>
+                <td class="loc-code">${statusLabel(item.status)}${item.completed_at ? ` · ${fmtDateOnly(item.completed_at)}` : ''}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `}
   `;
 }
 
@@ -569,45 +647,60 @@ async function renderLocationDetail(main, locationId) {
   const canEdit = roleAtLeast(mem.role, 'editor');
   const data = await api('GET', withOrg(`/orgs/:orgId/locations/${locationId}`.replace(':orgId', state.orgId)));
   const loc = data.location;
+  const today = todayDateString();
 
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="sub" style="cursor:pointer;" onclick="location.hash='#/workspace'">← Back to workspace</div>
+        <div class="sub" style="cursor:pointer;" onclick="location.hash='#/workspace'">← 回到工作看板</div>
         <h1>${loc.name}</h1>
-        <div class="sub">${loc.city || 'No city set'} · ${data.progress_pct}% complete</div>
+        <div class="sub">${loc.city || '尚未設定城市'} · 完成 ${data.progress_pct}%</div>
       </div>
-      ${canEdit ? `<button class="btn ghost" onclick="editLocationPrompt('${loc.id}')">Edit details</button>` : ''}
+      ${canEdit ? `<button class="btn ghost" onclick="editLocationPrompt('${loc.id}')">編輯資料</button>` : ''}
     </div>
     <div class="detail-grid">
       <div>
         ${data.pipeline.map((stage) => `
           <div class="stage-block">
             <div class="stage-block-head"><div class="stripe" style="background:${stage.color}"></div>${stage.name}</div>
-            ${stage.substeps.map((s) => `
-              <div class="substep-row ${s.progress && s.progress.status === 'done' ? 'done' : ''}">
-                <select class="status-select ${s.progress ? s.progress.status : 'not_started'}"
-                  ${canEdit ? '' : 'disabled'}
-                  onchange="updateProgress('${loc.id}', '${s.id}', this.value)">
-                  <option value="not_started" ${s.progress?.status === 'not_started' ? 'selected' : ''}>Not started</option>
-                  <option value="in_progress" ${s.progress?.status === 'in_progress' ? 'selected' : ''}>In progress</option>
-                  <option value="done" ${s.progress?.status === 'done' ? 'selected' : ''}>Done</option>
-                  <option value="blocked" ${s.progress?.status === 'blocked' ? 'selected' : ''}>Blocked</option>
-                </select>
-                <span class="substep-name">${s.name}</span>
-                ${s.is_milestone ? '<span class="milestone-flag">◆ milestone</span>' : ''}
-              </div>
-            `).join('')}
+            ${stage.substeps.map((s) => {
+              const status = s.progress ? s.progress.status : 'not_started';
+              const dueDate = s.progress && s.progress.due_date ? s.progress.due_date : '';
+              const completedDate = fmtDateOnly(s.progress && s.progress.completed_at);
+              const isDone = status === 'done';
+              const isOverdue = dueDate && dueDate < today && !isDone;
+              return `
+                <div class="substep-row ${isDone ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
+                  <select class="status-select ${status}"
+                    ${canEdit ? '' : 'disabled'}
+                    onchange="updateProgress('${loc.id}', '${s.id}', this.value)">
+                    <option value="not_started" ${status === 'not_started' ? 'selected' : ''}>尚未開始</option>
+                    <option value="in_progress" ${status === 'in_progress' ? 'selected' : ''}>進行中</option>
+                    <option value="done" ${status === 'done' ? 'selected' : ''}>已完成</option>
+                    <option value="blocked" ${status === 'blocked' ? 'selected' : ''}>卡關</option>
+                  </select>
+                  <span class="substep-name">${s.name}${s.is_milestone ? ' <span class="milestone-flag">◆ 里程碑</span>' : ''}</span>
+                  <span class="substep-meta">
+                    ${isDone ? `
+                      <span class="completed-tag" ${canEdit ? `onclick="editCompletedDate('${loc.id}', '${s.id}', '${completedDate}')"` : ''}>${completedDate || '設定日期'}</span>
+                    ` : `
+                      <input class="due-input" type="date" value="${dueDate}" ${canEdit ? '' : 'disabled'}
+                        onchange="updateDueDate('${loc.id}', '${s.id}', this.value)">
+                    `}
+                  </span>
+                </div>
+              `;
+            }).join('')}
           </div>
         `).join('')}
 
         <div class="side-panel">
-          <h3>Comments</h3>
+          <h3>留言</h3>
           ${canEdit ? `
             <div class="field-row">
-              <textarea id="new-comment" placeholder="Leave an update for the team…"></textarea>
+              <textarea id="new-comment" placeholder="留下進度更新給團隊…"></textarea>
             </div>
-            <button class="btn" onclick="postComment('${loc.id}')">Post</button>
+            <button class="btn" onclick="postComment('${loc.id}')">送出</button>
           ` : ''}
           <div style="margin-top:14px;">
             ${data.comments.map((c) => `
@@ -615,24 +708,24 @@ async function renderLocationDetail(main, locationId) {
                 <span class="who">${c.display_name}</span><span class="when">${fmtDate(c.created_at)}</span>
                 <div style="margin-top:3px;">${escapeHtml(c.body)}</div>
               </div>
-            `).join('') || '<div class="sub">No comments yet.</div>'}
+            `).join('') || '<div class="sub">尚未有留言。</div>'}
           </div>
         </div>
       </div>
 
       <div>
         <div class="side-panel">
-          <h3>Details</h3>
-          <div class="field-row"><label>Address</label><div>${loc.address || '—'}</div></div>
-          <div class="field-row"><label>Target open date</label><div>${loc.target_open_date || '—'}</div></div>
-          <div class="field-row"><label>Status</label><div>${loc.status}</div></div>
-          <div class="field-row"><label>Notes</label><div>${loc.notes || '—'}</div></div>
+          <h3>詳細資料</h3>
+          <div class="field-row"><label>地址</label><div>${loc.address || '—'}</div></div>
+          <div class="field-row"><label>目標開幕日</label><div>${loc.target_open_date || '—'}</div></div>
+          <div class="field-row"><label>狀態</label><div>${locationStatusLabel(loc.status)}</div></div>
+          <div class="field-row"><label>備註</label><div>${loc.notes || '—'}</div></div>
         </div>
         <div class="side-panel">
-          <h3>Activity</h3>
+          <h3>活動紀錄</h3>
           ${data.activity.slice(0, 12).map((a) => `
-            <div class="activity-item">${a.display_name || 'System'} — ${describeActivity(a)} <span class="mono">${fmtDate(a.created_at)}</span></div>
-          `).join('') || '<div class="sub">No activity yet.</div>'}
+            <div class="activity-item">${a.display_name || '系統'} — ${describeActivity(a)} <span class="mono">${fmtDate(a.created_at)}</span></div>
+          `).join('') || '<div class="sub">尚無活動紀錄。</div>'}
         </div>
       </div>
     </div>
@@ -640,24 +733,76 @@ async function renderLocationDetail(main, locationId) {
 }
 function describeActivity(a) {
   const map = {
-    location_created: 'created this location',
-    location_updated: 'updated details',
-    substep_update: 'updated a checklist item',
-    stage_advanced: 'advanced to the next stage',
-    comment: 'left a comment',
+    location_created: '建立了這間門市',
+    location_updated: '更新了門市資料',
+    substep_update: '更新了待辦事項',
+    stage_advanced: '推進到下一個階段',
+    comment: '留下留言',
   };
   return map[a.action] || a.action;
 }
 function fmtDate(iso) {
   if (!iso) return '';
-  return new Date(iso + 'Z').toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso + 'Z').toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function fmtDateOnly(iso) {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+function statusLabel(status) {
+  return {
+    not_started: '尚未開始',
+    in_progress: '進行中',
+    done: '已完成',
+    blocked: '卡關',
+  }[status] || status;
+}
+function locationStatusLabel(status) {
+  return {
+    active: '進行中',
+    on_hold: '暫停',
+    cancelled: '已取消',
+    opened: '已開幕',
+  }[status] || status;
+}
+function roleLabel(role) {
+  return {
+    viewer: '檢視者',
+    editor: '編輯者',
+    manager: '管理者',
+    admin: '系統管理員',
+    owner: '擁有者',
+  }[role] || role;
+}
+function todayDateString() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+function addDaysDateString(dateString, days) {
+  const date = new Date(dateString + 'T00:00:00');
+  date.setDate(date.getDate() + days);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
 }
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 async function updateProgress(locationId, substepId, status) {
   await api('PATCH', withOrg(`/orgs/:orgId/locations/${locationId}/progress/${substepId}`.replace(':orgId', state.orgId)), { status });
-  toast('Updated');
+  toast('已更新');
+  renderLocationDetail(document.getElementById('main'), locationId);
+}
+async function updateDueDate(locationId, substepId, value) {
+  await api('PATCH', withOrg(`/orgs/:orgId/locations/${locationId}/progress/${substepId}`.replace(':orgId', state.orgId)), { due_date: value || null });
+  toast('到期日已更新');
+  renderLocationDetail(document.getElementById('main'), locationId);
+}
+async function editCompletedDate(locationId, substepId, currentDate) {
+  const newDate = prompt('完成日期（YYYY-MM-DD）：', currentDate || '');
+  if (newDate === null) return;
+  await api('PATCH', withOrg(`/orgs/:orgId/locations/${locationId}/progress/${substepId}`.replace(':orgId', state.orgId)), { completed_at: newDate });
+  toast('完成日期已更新');
   renderLocationDetail(document.getElementById('main'), locationId);
 }
 async function postComment(locationId) {
@@ -668,10 +813,10 @@ async function postComment(locationId) {
 }
 async function editLocationPrompt(locationId) {
   const loc = state.locations.find((l) => l.id === locationId) || {};
-  const name = prompt('Name:', loc.name); if (name === null) return;
-  const address = prompt('Address:', loc.address || '');
-  const target_open_date = prompt('Target open date (YYYY-MM-DD):', loc.target_open_date || '');
-  const notes = prompt('Notes:', loc.notes || '');
+  const name = prompt('名稱：', loc.name); if (name === null) return;
+  const address = prompt('地址：', loc.address || '');
+  const target_open_date = prompt('目標開幕日（YYYY-MM-DD）：', loc.target_open_date || '');
+  const notes = prompt('備註：', loc.notes || '');
   await api('PATCH', withOrg(`/orgs/:orgId/locations/${locationId}`.replace(':orgId', state.orgId)), { name, address, target_open_date, notes });
   renderLocationDetail(document.getElementById('main'), locationId);
 }
@@ -687,35 +832,35 @@ async function renderAdmin(main) {
   const s = settingsRes.settings;
 
   main.innerHTML = `
-    <div class="page-head"><div><h1>Admin</h1><div class="sub">Members, pipeline, and notifications for this workspace</div></div></div>
+    <div class="page-head"><div><h1>管理</h1><div class="sub">管理此工作區的成員、流程與通知設定</div></div></div>
 
     <div class="admin-section">
-      <h2>Members</h2>
+      <h2>成員</h2>
       <table class="simple">
-        <thead><tr><th>Name</th><th>Role</th><th>LINE digest</th><th></th></tr></thead>
+        <thead><tr><th>姓名</th><th>權限</th><th>LINE 摘要</th><th></th></tr></thead>
         <tbody>
           ${membersRes.members.map((m) => `
             <tr>
               <td>${m.display_name}</td>
               <td>
                 <select onchange="changeRole('${m.id}', this.value)" class="status-select">
-                  ${['viewer','editor','manager','admin','owner'].map((r) => `<option value="${r}" ${r === m.role ? 'selected' : ''}>${r}</option>`).join('')}
+                  ${['viewer','editor','manager','admin','owner'].map((r) => `<option value="${r}" ${r === m.role ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}
                 </select>
               </td>
               <td><input type="checkbox" ${m.notify_progress ? 'checked' : ''} onchange="toggleNotify('${m.id}', this.checked)"></td>
-              <td><span class="btn danger" style="padding:4px 8px; font-size:11px;" onclick="removeMember('${m.id}')">Remove</span></td>
+              <td><span class="btn danger" style="padding:4px 8px; font-size:11px;" onclick="removeMember('${m.id}')">移除</span></td>
             </tr>
           `).join('')}
         </tbody>
       </table>
       <div style="margin-top:12px;">
-        <button class="btn secondary" onclick="createInvite()">+ Create invite link</button>
+        <button class="btn secondary" onclick="createInvite()">+ 建立邀請連結</button>
       </div>
       ${invitesRes.invites.length ? `
         <div style="margin-top:10px;">
           ${invitesRes.invites.map((i) => `
             <div class="sub mono" style="margin-bottom:4px;">
-              ${i.role} · code: ${i.code} ${i.used_by ? '(used)' : `(expires ${new Date(i.expires_at).toLocaleDateString()})`}
+              ${roleLabel(i.role)} · 邀請碼：${i.code} ${i.used_by ? '（已使用）' : `（到期日 ${new Date(i.expires_at).toLocaleDateString('zh-TW')}）`}
             </div>
           `).join('')}
         </div>
@@ -723,91 +868,91 @@ async function renderAdmin(main) {
     </div>
 
     <div class="admin-section">
-      <h2>Pipeline</h2>
-      <div class="sub" style="margin-bottom:10px;">Stages and checklist items shown on every location. Changes apply immediately across the workspace.</div>
+      <h2>流程</h2>
+      <div class="sub" style="margin-bottom:10px;">每間門市都會使用這些階段與待辦事項。變更會立即套用到整個工作區。</div>
       ${pipeRes.stages.map((stage) => `
         <div class="stage-block">
           <div class="stage-block-head"><div class="stripe" style="background:${stage.color}"></div>${stage.name}
-            <span class="btn ghost" style="margin-left:auto; padding:3px 8px; font-size:11px;" onclick="addSubstep('${stage.id}')">+ Add item</span>
+            <span class="btn ghost" style="margin-left:auto; padding:3px 8px; font-size:11px;" onclick="addSubstep('${stage.id}')">+ 新增項目</span>
           </div>
           ${stage.substeps.map((s) => `
             <div class="substep-row">
               <span class="substep-name">${s.name}</span>
               ${s.is_milestone ? '<span class="milestone-flag">◆</span>' : ''}
-              <span class="btn danger" style="padding:2px 6px; font-size:10px;" onclick="deleteSubstep('${s.id}')">Remove</span>
+              <span class="btn danger" style="padding:2px 6px; font-size:10px;" onclick="deleteSubstep('${s.id}')">移除</span>
             </div>
           `).join('')}
         </div>
       `).join('')}
-      <button class="btn secondary" onclick="addStage()">+ Add stage</button>
+      <button class="btn secondary" onclick="addStage()">+ 新增階段</button>
     </div>
 
     <div class="admin-section">
-      <h2>LINE notifications</h2>
+      <h2>LINE 通知</h2>
       <div class="field-row" style="max-width:320px;">
-        <label>Frequency</label>
+        <label>頻率</label>
         <select onchange="updateSchedule({frequency: this.value})">
-          <option value="daily" ${s.frequency === 'daily' ? 'selected' : ''}>Daily</option>
-          <option value="weekly" ${s.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+          <option value="daily" ${s.frequency === 'daily' ? 'selected' : ''}>每日</option>
+          <option value="weekly" ${s.frequency === 'weekly' ? 'selected' : ''}>每週</option>
         </select>
       </div>
       ${s.frequency === 'weekly' ? `
         <div class="field-row" style="max-width:320px;">
-          <label>Day of week</label>
+          <label>星期</label>
           <select onchange="updateSchedule({day_of_week: Number(this.value)})">
-            ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => `<option value="${i}" ${s.day_of_week === i ? 'selected' : ''}>${d}</option>`).join('')}
+            ${['週日','週一','週二','週三','週四','週五','週六'].map((d, i) => `<option value="${i}" ${s.day_of_week === i ? 'selected' : ''}>${d}</option>`).join('')}
           </select>
         </div>
       ` : ''}
       <div class="field-row" style="max-width:320px;">
-        <label>Hour (Asia/Taipei, 24h)</label>
+        <label>發送時間（Asia/Taipei，24 小時制）</label>
         <input type="number" min="0" max="23" value="${s.hour_local}" onchange="updateSchedule({hour_local: Number(this.value)})">
       </div>
-      <div class="sub">Toggle each member's "LINE digest" checkbox above to control who receives it.</div>
+      <div class="sub">勾選上方成員的「LINE 摘要」即可控制誰會收到通知。</div>
     </div>
   `;
 }
 async function changeRole(userId, role) {
   await api('PATCH', withOrg(`/orgs/:orgId/members/${userId}`.replace(':orgId', state.orgId)), { role });
-  toast('Role updated'); render();
+  toast('權限已更新'); render();
 }
 async function toggleNotify(userId, checked) {
   await api('PATCH', withOrg(`/orgs/:orgId/members/${userId}`.replace(':orgId', state.orgId)), { notify_progress: checked ? 1 : 0 });
-  toast('Preference saved');
+  toast('偏好設定已儲存');
 }
 async function removeMember(userId) {
-  if (!confirm('Remove this member from the organization?')) return;
+  if (!confirm('要將這位成員從工作區移除嗎？')) return;
   await api('DELETE', withOrg(`/orgs/:orgId/members/${userId}`.replace(':orgId', state.orgId)));
   render();
 }
 async function createInvite() {
-  const role = prompt('Role for invitee (viewer / editor / manager / admin):', 'editor');
+  const role = prompt('邀請對象權限（viewer / editor / manager / admin）：', 'editor');
   if (!role) return;
   const { invite } = await api('POST', withOrg('/orgs/:orgId/invites'.replace(':orgId', state.orgId)), { role });
-  prompt('Share this invite link:', location.origin + invite.url);
+  prompt('分享此邀請連結：', location.origin + invite.url);
   render();
 }
 async function addStage() {
-  const name = prompt('Stage name:');
+  const name = prompt('階段名稱：');
   if (!name) return;
   await api('POST', withOrg('/orgs/:orgId/stages'.replace(':orgId', state.orgId)), { name });
   render();
 }
 async function addSubstep(stageId) {
-  const name = prompt('Checklist item name:');
+  const name = prompt('待辦項目名稱：');
   if (!name) return;
-  const isMilestone = confirm('Mark as a milestone?');
+  const isMilestone = confirm('要標記為里程碑嗎？');
   await api('POST', withOrg(`/orgs/:orgId/stages/${stageId}/substeps`.replace(':orgId', state.orgId)), { name, is_milestone: isMilestone ? 1 : 0 });
   render();
 }
 async function deleteSubstep(substepId) {
-  if (!confirm('Remove this checklist item? Progress on it will be lost.')) return;
+  if (!confirm('要移除此待辦項目嗎？相關進度會一併刪除。')) return;
   await api('DELETE', withOrg(`/orgs/:orgId/substeps/${substepId}`.replace(':orgId', state.orgId)));
   render();
 }
 async function updateSchedule(patch) {
   await api('PATCH', withOrg('/orgs/:orgId/notification-settings'.replace(':orgId', state.orgId)), patch);
-  toast('Schedule saved'); render();
+  toast('排程已儲存'); render();
 }
 </script>
 </body>

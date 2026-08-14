@@ -42,6 +42,30 @@ router.get('/orgs/:orgId/locations', requireRole('viewer'), (req, res) => {
   res.json({ locations: withProgress });
 });
 
+router.get('/orgs/:orgId/timeline', requireRole('viewer'), (req, res) => {
+  const items = db.prepare(`
+    SELECT
+      l.id as location_id,
+      l.name as location_name,
+      s.name as stage_name,
+      s.color as stage_color,
+      st.name as substep_name,
+      lp.status,
+      lp.due_date,
+      lp.completed_at
+    FROM location_progress lp
+    JOIN substep_templates st ON st.id = lp.substep_template_id
+    JOIN locations l ON l.id = lp.location_id
+    LEFT JOIN stage_templates s ON s.id = st.stage_template_id
+    WHERE l.org_id = ?
+      AND lp.due_date IS NOT NULL
+      AND l.status = 'active'
+    ORDER BY lp.due_date ASC, l.name ASC, st.order_index ASC
+  `).all(req.orgId);
+
+  res.json({ items });
+});
+
 router.post('/orgs/:orgId/locations', requireRole('editor'), (req, res) => {
   const { name, city, address, target_open_date, owner_user_id, notes } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name_required' });
@@ -120,7 +144,8 @@ router.delete('/orgs/:orgId/locations/:locationId', requireRole('admin'), (req, 
 
 // Update a single checklist item's status (this is the main co-editing action)
 router.patch('/orgs/:orgId/locations/:locationId/progress/:substepId', requireRole('editor'), (req, res) => {
-  const { status, notes, due_date } = req.body;
+  const { status, notes, due_date, completed_at } = req.body;
+  const hasCompletedAt = Object.prototype.hasOwnProperty.call(req.body, 'completed_at');
   const valid = ['not_started', 'in_progress', 'done', 'blocked'];
   if (status && !valid.includes(status)) return res.status(400).json({ error: 'invalid_status' });
 
@@ -133,14 +158,23 @@ router.patch('/orgs/:orgId/locations/:locationId/progress/:substepId', requireRo
   if (status) {
     fields.push('status = ?'); params.push(status);
     if (status === 'done') {
-      fields.push('completed_by = ?', `completed_at = datetime('now')`);
-      params.push(req.user.id);
+      if (!existing.completed_by) {
+        fields.push('completed_by = ?');
+        params.push(req.user.id);
+      }
+      if (hasCompletedAt) {
+        fields.push('completed_at = ?');
+        params.push(completed_at || null);
+      } else if (existing.status !== 'done' || !existing.completed_at) {
+        fields.push(`completed_at = datetime('now')`);
+      }
     } else {
       fields.push('completed_by = NULL', 'completed_at = NULL');
     }
   }
   if (typeof notes === 'string') { fields.push('notes = ?'); params.push(notes); }
   if (due_date !== undefined) { fields.push('due_date = ?'); params.push(due_date); }
+  if (!status && hasCompletedAt) { fields.push('completed_at = ?'); params.push(completed_at || null); }
 
   params.push(existing.id);
   db.prepare(`UPDATE location_progress SET ${fields.join(', ')} WHERE id = ?`).run(...params);

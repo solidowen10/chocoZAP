@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>chocoZAP Taiwan Location Review</title>
+<link rel="icon" type="image/png" href="/assets/choco-logo.png">
+<link rel="apple-touch-icon" href="/assets/choco-logo.png">
+<style>
+.address-box{
+  margin-top:14px;
+  margin-bottom:16px;
+  padding:14px 16px;
+  background:#f8f8f6;
+  border-radius:14px;
+  line-height:1.55;
+}
+
+.address-box small{
+  display:block;
+  color:#888;
+  font-size:12px;
+  margin-bottom:5px;
+}
+
+.address-box div{
+  font-size:14px;
+  font-weight:700;
+  color:#222;
+  word-break:break-word;
+}
+
+.address-box a{
+  display:inline-block;
+  margin-top:8px;
+  font-size:13px;
+  color:#0a66c2;
+  text-decoration:none;
+  font-weight:700;
+}
+
+.address-box a:hover{
+  text-decoration:underline;
+}
+
+:root{
+  --bg:#f5f5f3;
+  --card:#fff;
+  --text:#171717;
+  --muted:#777;
+  --line:#e8e8e5;
+  --green:#0aa66f;
+  --yellow:#d99b00;
+  --red:#d84a4a;
+  --orange:#ff5a36;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.wrap{max-width:1280px;margin:auto;padding:42px 22px 80px}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#777;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:1.5px;
+}
+
+.brand img{
+  width:150px;
+  height:auto;
+  display:block;
+  object-fit:contain;
+}
+
+.brand span{
+  border-left:1px solid #ddd;
+  padding-left:10px;
+}
+h1{font-size:34px;margin:8px 0 4px}
+.sub{color:var(--muted);font-size:14px}
+
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 20px}
+.tab{
+  border:1px solid var(--line);
+  background:#fff;
+  color:#111;
+  padding:10px 18px;
+  border-radius:999px;
+  cursor:pointer;
+  font-weight:800;
+}
+.tab.active{background:#111;color:#fff}
+
+.summary{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-bottom:22px;
+}
+.stat{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+}
+.stat b{display:block;font-size:26px}
+.stat span{font-size:12px;color:var(--muted)}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:22px;
+  box-shadow:0 3px 14px rgba(0,0,0,.035);
+}
+.card-address{
+  margin-top:14px;
+  font-size:14px;
+  font-weight:750;
+  color:#222;
+  line-height:1.5;
+}
+
+.map-link{
+  display:inline-block;
+  margin-top:5px;
+  color:#0969da;
+  font-size:13px;
+  font-weight:750;
+  text-decoration:none;
+}
+
+.map-link:hover{
+  text-decoration:underline;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+}
+.name{font-size:22px;font-weight:900}
+.region{font-size:13px;color:var(--muted);margin-top:4px}
+
+.score{
+  width:72px;height:72px;border-radius:50%;
+  color:#fff;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-weight:900;flex:none;
+}
+.score strong{font-size:23px;line-height:1}
+.score span{font-size:10px;margin-top:4px}
+.green{background:var(--green)}
+.yellow{background:var(--yellow)}
+.red{background:var(--red)}
+
+.meta{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  padding:16px 0;
+  margin:18px 0;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+}
+.meta small{display:block;color:var(--muted);margin-bottom:4px}
+.meta strong{font-size:14px}
+
+.scores{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:4px;
+}
+.map-wrap{
+  margin-top:18px;
+  width:100%;
+  height:260px;
+  overflow:hidden;
+  border-radius:16px;
+  background:#eee;
+}
+
+.map-wrap iframe{
+  width:100%;
+  height:100%;
+  border:0;
+}
+.scorebox{
+  background:#f8f8f6;
+  border-radius:14px;
+  padding:14px;
+}
+.scorebox small{display:block;color:var(--muted);margin-top:3px}
+.scorebox b{font-size:17px}
+
+.tag{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:9px;
+  font-size:12px;
+  font-weight:800;
+  margin-top:14px;
+}
+.tag.green{background:#dcf5eb;color:#087b55}
+.tag.yellow{background:#fff0c4;color:#8c6500}
+.tag.red{background:#fde1e1;color:#a83232}
+
+.detail{margin-top:14px;font-size:14px;line-height:1.65}
+.detail b{display:block;margin-top:9px}
+.detail div{color:#666}
+
+.footer-note{
+  margin-top:28px;
+  color:#888;
+  font-size:12px;
+  line-height:1.6;
+}
+
+@media(max-width:850px){
+  .grid{grid-template-columns:1fr}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .meta{grid-template-columns:repeat(2,1fr)}
+  .scores{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <img src="/assets/choco-logo.png" alt="chocoZAP">
+    <span>TAIWAN</span>
+  </div>
+  <h1>Location Review</h1>
+  <div class="sub">展店物件評估｜依 AI 分數由高至低排序</div>
+  <div id="updatedInfo" class="sub" style="margin-top:6px;">
+    最後更新：載入中...
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-region="全部">全部</button>
+    <button class="tab" data-region="台北">台北</button>
+    <button class="tab" data-region="新北">新北</button>
+  </div>
+
+  <div class="summary">
+    <div class="stat"><b id="countAll">0</b><span>目前物件</span></div>
+    <div class="stat"><b id="countHigh">0</b><span>8 分以上</span></div>
+    <div class="stat"><b id="countCheck">0</b><span>待補資料</span></div>
+    <div class="stat"><b id="countReject">0</b><span>淘汰</span></div>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="footer-note">
+    AI 評分＝依 chocoZAP Taiwan 展店評分規則重新評估。<br>
+    人工評分＝原始物件表內紀錄之評價，若原表無評分者則不顯示。
+  </div>
+</div>
+
+<script>
+let locations = [];
+let currentRegion = "全部";
+
+async function loadLocations() {
+  const grid = document.getElementById("grid");
+
+  try {
+    grid.innerHTML = `
+      <div style="padding:30px;color:#777;">
+        載入物件資料中...
+      </div>
+    `;
+
+    const res = await fetch('/api/location-report', {
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    const mainLocations = Array.isArray(data.locations)
+  ? data.locations
+  : [];
+
+const reviewOnly = Array.isArray(data.reviewOnly)
+  ? data.reviewOnly
+  : [];
+
+locations = [
+  ...mainLocations,
+  ...reviewOnly.map(x => ({
+    ...x,
+    aiScore: x.aiScore ?? 0,
+    status: x.status || '審查中',
+    risk: x.risk || '審查表獨有物件，待補完整評估',
+    missing: x.missing || '待補主物件資料',
+    next: x.next || '先確認完整物件資料與是否納入主表'
+  }))
+];
+
+    const updated = document.getElementById("updatedInfo");
+
+    if (updated) {
+      updated.textContent =
+        `最後更新：${formatDate(data.updatedAt)} ｜ ${data.updatedBy || "—"}`;
+    }
+
+    refreshRegionTabs();
+    render();
+
+  } catch (err) {
+    console.error(err);
+
+    grid.innerHTML = `
+      <div style="
+        background:#fff;
+        border-radius:16px;
+        padding:24px;
+        color:#b42318;
+      ">
+        無法載入物件資料
+      </div>
+    `;
+  }
+}
+
+function shortAddress(address = "") {
+  let s = String(address).trim();
+
+  if (!s) return "地址待確認";
+
+  // 移除郵遞區號 / 國家 / 城市名稱
+  s = s
+    .replace(/^\d{3,6}/, "")
+    .replace(/臺北市|台北市|新北市|桃園市|新竹縣|新竹市|臺中市|台中市|臺南市|台南市|高雄市/g, "")
+    .replace(/,\s*臺灣.*$/i, "")
+    .replace(/,\s*台湾.*$/i, "")
+    .trim();
+
+  // Nominatim 格式：46號, 中原街, 中原里, 中山區, ...
+  if (s.includes(",")) {
+    const parts = s
+      .split(",")
+      .map(x => x.trim())
+      .filter(Boolean);
+
+    const districtIndex = parts.findIndex(x =>
+      /區$|市$|鄉$|鎮$/.test(x)
+    );
+
+    if (districtIndex >= 0) {
+      const district = parts[districtIndex];
+
+      const before = parts
+        .slice(0, districtIndex)
+        .filter(x => !/里$|村$|商圈$/.test(x));
+
+      return district + before.reverse().join("");
+    }
+  }
+
+  return s.replace(/,/g, "");
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    year:'numeric',
+    month:'2-digit',
+    day:'2-digit',
+    hour:'2-digit',
+    minute:'2-digit'
+  }).format(date);
+}
+
+function refreshRegionTabs() {
+  const tabs = document.querySelector(".tabs");
+
+  const reviewCount = locations.filter(x =>
+  x.underReview === true || x.reviewOnly === true
+).length;
+
+const regions = [
+  "全部",
+  `審查中 ${reviewCount}`,
+  ...new Set(locations.map(x => x.region).filter(Boolean))
+];
+
+  tabs.innerHTML = regions.map(region => `
+    <button
+      class="tab ${region === currentRegion ? "active" : ""}"
+      data-region="${region}"
+    >
+      ${region}
+    </button>
+  `).join("");
+
+  tabs.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentRegion = btn.dataset.region;
+
+      tabs.querySelectorAll(".tab")
+        .forEach(x => x.classList.remove("active"));
+
+      btn.classList.add("active");
+
+      render();
+    });
+  });
+}
+
+function colorClass(item){
+  if(item.rejected) return "red";
+  if(item.aiScore >= 8) return "green";
+  return "yellow";
+}
+
+function render(){
+  const filtered = locations
+  .filter(x => {
+    if (currentRegion === "全部") return true;
+
+    if (currentRegion.startsWith("審查中")) {
+      return x.underReview === true || x.reviewOnly === true;
+    }
+
+    return x.region === currentRegion;
+  })
+  .sort((a,b) => (b.aiScore || 0) - (a.aiScore || 0));
+
+  document.getElementById("grid").innerHTML = filtered.map(x => {
+    const extraScore = x.secondaryScore ? `
+      <div class="scorebox">
+        <b>${x.secondaryScore}</b>
+        <small>評分者：${x.secondaryReviewer}</small>
+      </div>
+    ` : "";
+
+    return `
+      <article class="card">
+        <div class="top">
+          <div>
+            <div class="name">${x.name}</div>
+	    <div class="region">${x.region}</div>
+
+	    <div class="card-address">
+  	      ${shortAddress(x.address)}
+	    </div>
+
+	    ${x.mapLink ? `
+  	      <a
+    	        class="map-link"
+    	        href="${Number.isFinite(x.lat) && Number.isFinite(x.lng) ? `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lng}` : x.mapLink}"
+    		target="_blank"
+    		rel="noopener noreferrer"
+  	      >
+    		在 Google Maps 開啟 ↗
+  	      </a>
+	    ` : ""}
+          </div>
+
+          <div class="score ${colorClass(x)}">
+            <strong>${x.rejected ? "REJ" : x.aiScore}</strong>
+            <span>AI SCORE</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <div><small>租金</small><strong>${x.rent}</strong></div>
+          <div><small>可用坪數</small><strong>${x.area}</strong></div>
+          <div><small>樓層</small><strong>${x.floor}</strong></div>
+          <div><small>捷運</small><strong>${x.mrt}</strong></div>
+        </div>
+        <div class="scores">
+          <div class="scorebox">
+            <b>AI 評分：${x.aiScore} / 10</b>
+            <small>評分者：${x.aiReviewer}</small>
+          </div>
+
+          ${x.originalScore ? `
+  <div class="scorebox">
+    <b>原始評分：${x.originalScore}</b>
+    <small>Google Sheet 点数</small>
+  </div>
+` : ""}
+
+${x.toshiScore ? `
+  <div class="scorebox">
+    <b>Toshi：${x.toshiScore}</b>
+    <small>人工評分</small>
+  </div>
+` : ""}
+
+${x.nakamuraScore ? `
+  <div class="scorebox">
+    <b>仲村：${x.nakamuraScore}</b>
+    <small>人工評分</small>
+  </div>
+` : ""}
+        </div>
+
+        <span class="tag ${colorClass(x)}">${x.status}</span>
+
+        <div class="detail">
+          <b>主要風險</b>
+          <div>${x.risk}</div>
+
+          <b>缺資料</b>
+          <div>${x.missing}</div>
+
+          <b>下一步</b>
+	  <div>${x.next}</div>
+
+	  <b>Agent 商圈評語</b>
+	  <div>${x.aiComment || "尚未研究"}</div>
+
+	  <b>附近健身房 / 競爭</b>
+	  <div>${x.competition || "尚未研究"}</div>
+
+	  <b>人流 / 商圈</b>
+	  <div>${x.trafficResearch || "尚未研究"}</div>
+        </div>
+	
+	${x.mapQuery ? `
+  	  <div class="map-wrap">
+    	    <iframe
+      	      loading="lazy"
+      	      referrerpolicy="no-referrer-when-downgrade"
+      	      src="https://www.google.com/maps?q=${encodeURIComponent(x.mapQuery)}&output=embed">
+    	    </iframe>
+  	  </div>
+	` : ""}
+      </article>
+    `;
+  }).join("");
+
+  document.getElementById("countAll").textContent = filtered.length;
+  document.getElementById("countHigh").textContent =
+    filtered.filter(x => x.aiScore >= 8 && !x.rejected).length;
+  document.getElementById("countCheck").textContent =
+    filtered.filter(x => x.aiScore < 8 && !x.rejected).length;
+  document.getElementById("countReject").textContent =
+    filtered.filter(x => x.rejected).length;
+}
+
+loadLocations();
+</script>
+</body>
+</html>

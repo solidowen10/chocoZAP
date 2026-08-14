@@ -20,6 +20,11 @@ app.use(attachUser);
 app.use(require('./routes/auth'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Public location report API
+app.use(require('./routes/location-report'));
+app.use(require('./routes/location-sheet-sync'));
+
+// Authenticated APIs
 app.use(require('./routes/orgs'));
 app.use(require('./routes/stages'));
 app.use(require('./routes/locations'));
