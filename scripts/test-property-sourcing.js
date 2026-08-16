@@ -2,7 +2,9 @@ const assert = require('assert');
 
 const {
   defaultScoringConfig,
+  manualLocationToScoringListing,
   normalizeListing,
+  scoreManualLocation,
   upsertListings,
   scoreListing,
   scoreListings,
@@ -70,7 +72,7 @@ function testCrawlerReimportPreservesHumanFields() {
   assert.strictEqual(listing.manual_notes, '已約房仲確認');
 }
 
-function testMissingUsableAreaRemainsMissing() {
+function testListedAreaDrivesScoring() {
   const listing = normalizeListing({
     source: '591',
     source_listing_id: '21778960',
@@ -78,14 +80,16 @@ function testMissingUsableAreaRemainsMissing() {
     city: '台北市',
     district: '南港區',
     rent_twd: 89000,
-    listed_area_ping: 55,
+    listed_area_ping: 90,
     usable_area_ping: null,
     floor_text: '1F/15F',
   });
   const scored = scoreListing(listing, defaultScoringConfig());
 
   assert.strictEqual(listing.usable_area_ping, null);
-  assert(scored.missing_data.includes('使用面積'));
+  assert.strictEqual(scored.score, 10);
+  assert(!scored.missing_data.includes('總坪數'));
+  assert(!scored.missing_data.includes('使用面積'));
 }
 
 function testScoringChangesWhenConfigChanges() {
@@ -96,6 +100,7 @@ function testScoringChangesWhenConfigChanges() {
     city: '台北市',
     district: '南港區',
     rent_twd: 150000,
+    listed_area_ping: 90,
     usable_area_ping: 90,
     mrt_minutes: 4,
     floor_text: '1F/15F',
@@ -130,7 +135,8 @@ function testRecommendationThresholdWorks() {
     url: 'https://rent.591.com.tw/2',
     city: '台北市',
     district: '南港區',
-    rent_twd: 89000,
+    rent_twd: 150000,
+    listed_area_ping: 100,
     usable_area_ping: 100,
     mrt_minutes: 3,
     floor_text: '1F/15F',
@@ -141,11 +147,11 @@ function testRecommendationThresholdWorks() {
 
   const lowThreshold = {
     ...defaultScoringConfig(),
-    recommendation_threshold: 7,
+    recommendation_threshold: 8,
   };
   const highThreshold = {
     ...defaultScoringConfig(),
-    recommendation_threshold: 10.5,
+    recommendation_threshold: 9.5,
   };
 
   assert.strictEqual(scoreListing(listing, lowThreshold).recommendation, 'recommend_viewing');
@@ -160,6 +166,7 @@ function testScoreListingsDeterministic() {
     city: '台北市',
     district: '松山區',
     rent_twd: 100000,
+    listed_area_ping: 85,
     usable_area_ping: 85,
     mrt_minutes: 5,
     floor_text: '1F/5F',
@@ -172,11 +179,126 @@ function testScoreListingsDeterministic() {
   assert.deepStrictEqual(scoreListings(listings, config), scoreListings(listings, config));
 }
 
+function testUnifiedMaxIsExactlyTen() {
+  const listing = {
+    city: '台北市',
+    district: '南港區',
+    listed_area_ping: 100,
+    rent_twd: 100000,
+    floor_text: '1F/5F',
+  };
+  const scoring = scoreListing(listing, defaultScoringConfig());
+
+  assert.strictEqual(scoring.score, 10);
+  assert.strictEqual(
+    scoring.breakdown.reduce((sum, item) => sum + item.max, 0),
+    10,
+  );
+}
+
+function testUsableAreaDoesNotAffectScore() {
+  const listing = {
+    city: '台北市',
+    district: '南港區',
+    listed_area_ping: 100,
+    rent_twd: 100000,
+    floor_text: '1F/5F',
+  };
+
+  assert.strictEqual(
+    scoreListing({ ...listing, usable_area_ping: 20 }).score,
+    scoreListing({ ...listing, usable_area_ping: 300 }).score,
+  );
+}
+
+function testResearchFieldsDoNotAffectNumericScore() {
+  const listing = {
+    city: '台北市',
+    district: '南港區',
+    listed_area_ping: 100,
+    rent_twd: 100000,
+    floor_text: '1F/5F',
+  };
+  const baseScore = scoreListing(listing, defaultScoringConfig()).score;
+  const researchedScore = scoreListing({
+    ...listing,
+    mrt_minutes: 1,
+    signage: '2面看板',
+    pedestrian_flow: '人流多',
+    zoning_permit: '不可變更',
+    building_risks: '重大建物風險',
+    usable_area_ping: 10,
+  }, defaultScoringConfig()).score;
+
+  assert.strictEqual(baseScore, researchedScore);
+}
+
+function testManualAdapterMatchesAutomatedScoringField() {
+  const manual = {
+    region: '台北',
+    address: '台北市南港區經園街',
+    areaPing: 100,
+    rent: 'NT$100,000',
+    floor: '1F/5F',
+  };
+  const automated = {
+    city: '台北市',
+    district: '南港區',
+    listed_area_ping: 100,
+    rent_twd: 100000,
+    floor_text: '1F/5F',
+  };
+  const adapted = manualLocationToScoringListing(manual);
+
+  assert.strictEqual(adapted.city, automated.city);
+  assert.strictEqual(adapted.district, automated.district);
+  assert.strictEqual(adapted.listed_area_ping, automated.listed_area_ping);
+  assert.strictEqual(scoreListing(adapted, defaultScoringConfig()).score, scoreListing(automated, defaultScoringConfig()).score);
+}
+
+function testConfigChangeAffectsManualAndAutomatedScores() {
+  const config = defaultScoringConfig();
+  const strictAreaConfig = {
+    ...config,
+    area: {
+      ...config.area,
+      good_min_ping: 120,
+      ok_min_ping: 110,
+      good_points: 3,
+      ok_points: 1,
+      low_points: 0,
+    },
+  };
+  const manual = {
+    region: '台北',
+    address: '台北市南港區經園街',
+    areaPing: 100,
+    rent: 'NT$100,000',
+    floor: '1F/5F',
+  };
+  const automated = {
+    city: '台北市',
+    district: '南港區',
+    listed_area_ping: 100,
+    rent_twd: 100000,
+    floor_text: '1F/5F',
+  };
+
+  assert.strictEqual(scoreManualLocation(manual, config).aiScore, scoreListing(automated, config).score);
+  assert.strictEqual(scoreManualLocation(manual, strictAreaConfig).aiScore, scoreListing(automated, strictAreaConfig).score);
+  assert.notStrictEqual(scoreManualLocation(manual, config).aiScore, scoreManualLocation(manual, strictAreaConfig).aiScore);
+}
+
 testUpsertPreventsDuplicates();
 testCrawlerReimportPreservesHumanFields();
-testMissingUsableAreaRemainsMissing();
+testListedAreaDrivesScoring();
 testScoringChangesWhenConfigChanges();
 testRecommendationThresholdWorks();
 testScoreListingsDeterministic();
+testUnifiedMaxIsExactlyTen();
+testUsableAreaDoesNotAffectScore();
+testResearchFieldsDoNotAffectNumericScore();
+testManualAdapterMatchesAutomatedScoringField();
+testConfigChangeAffectsManualAndAutomatedScores();
 
 console.log('property sourcing tests passed');

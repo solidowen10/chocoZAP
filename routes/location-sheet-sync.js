@@ -10,6 +10,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
+const {
+  mergeScoringConfig,
+  scoreManualLocations,
+} = require('../lib/propertySourcing');
 
 const router = express.Router();
 
@@ -79,6 +83,15 @@ async function readSheetValues(sheetName) {
 }
 
 const REPORT = path.join(__dirname, '..', 'data', 'location-report.json');
+const SCORING_CONFIG = path.join(__dirname, '..', 'data', 'property-scoring-config.json');
+
+function readScoringConfig() {
+  try {
+    return mergeScoringConfig(JSON.parse(fs.readFileSync(SCORING_CONFIG, 'utf8')));
+  } catch (error) {
+    return mergeScoringConfig(null);
+  }
+}
 
 function normalizeAddress(v = '') {
   return String(v)
@@ -404,12 +417,16 @@ try {
   global.__reviewOnly = [];
 }
 
+    const scoringConfig = readScoringConfig();
+    const scoredLocations = scoreManualLocations(locations, scoringConfig);
+    const scoredReviewOnly = scoreManualLocations(global.__reviewOnly || [], scoringConfig);
+
     const output = {
       updatedAt: new Date().toISOString(),
       updatedBy: 'Google Sheet Sync',
-      count: locations.length,
-      locations,
-      reviewOnly: global.__reviewOnly || []
+      count: scoredLocations.length,
+      locations: scoredLocations,
+      reviewOnly: scoredReviewOnly
     };
 
     fs.writeFileSync(

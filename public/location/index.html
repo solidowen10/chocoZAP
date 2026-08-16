@@ -1190,7 +1190,7 @@ function renderManualContent(){
 
         <div class="meta">
           <div><small>租金</small><strong>${x.rent}</strong></div>
-          <div><small>可用坪數</small><strong>${x.area}</strong></div>
+          <div><small>總坪數</small><strong>${x.area}</strong></div>
           <div><small>樓層</small><strong>${x.floor}</strong></div>
           <div><small>捷運</small><strong>${x.mrt}</strong></div>
         </div>
@@ -1490,8 +1490,8 @@ document.getElementById("autoCountRejected").textContent =
         </div>
         <div class="auto-meta">
           <div><small>租金</small><strong>${twd(x.rent_twd)}</strong></div>
-          <div><small>刊登坪數</small><strong>${ping(x.listed_area_ping)}</strong></div>
-          <div><small>使用面積</small><strong>${x.usable_area_ping == null ? "待確認" : ping(x.usable_area_ping)}</strong></div>
+          <div><small>總坪數</small><strong>${ping(x.listed_area_ping)}</strong></div>
+          <div><small>人工可用坪數</small><strong>${x.usable_area_ping == null ? "待確認" : ping(x.usable_area_ping)}</strong></div>
           <div><small>樓層</small><strong>${escapeHtml(x.floor_text || "待確認")}</strong></div>
           <div><small>捷運</small><strong>${escapeHtml(x.mrt_station || "待確認")}${x.mrt_minutes == null ? "" : ` · ${x.mrt_minutes} 分`}</strong></div>
           <div><small>類型</small><strong>${escapeHtml(x.property_type || "待確認")}</strong></div>
@@ -1664,7 +1664,6 @@ function cfg(path, fallback = "") {
 }
 
 function renderScoringRules() {
-  const c = scoringConfig || {};
   document.getElementById("rulesForm").innerHTML = `
     <div class="rule-section">
       <h2>推薦門檻</h2>
@@ -1680,43 +1679,40 @@ function renderScoringRules() {
         <label>優先行政區（逗號分隔）</label>
         <input id="rulePreferredDistricts" value="${escapeHtml((cfg("city_location.preferred_districts", []) || []).join(","))}">
       </div>
+      <div class="field"><label>城市分數</label><input id="ruleCityPoints" type="number" min="0" max="2" step="0.1" value="${cfg("city_location.city_points", 1)}"></div>
+      <div class="field"><label>行政區加分</label><input id="ruleDistrictBonus" type="number" min="0" max="2" step="0.1" value="${cfg("city_location.district_bonus_points", 1)}"></div>
     </div>
 
     <div class="rule-section">
-      <h2>面積 / 租金</h2>
-      <div class="field"><label>好物件使用面積下限</label><input id="ruleAreaGoodMin" type="number" value="${cfg("area.good_min_ping", 80)}"></div>
-      <div class="field"><label>好物件使用面積上限</label><input id="ruleAreaGoodMax" type="number" value="${cfg("area.good_max_ping", 160)}"></div>
-      <div class="field"><label>可接受使用面積下限</label><input id="ruleAreaOkMin" type="number" value="${cfg("area.ok_min_ping", 60)}"></div>
+      <h2>總坪數</h2>
+      <div class="field"><label>好物件總坪數下限</label><input id="ruleAreaGoodMin" type="number" min="0" value="${cfg("area.good_min_ping", 80)}"></div>
+      <div class="field"><label>好物件總坪數上限</label><input id="ruleAreaGoodMax" type="number" min="0" value="${cfg("area.good_max_ping", 160)}"></div>
+      <div class="field"><label>可接受總坪數下限</label><input id="ruleAreaOkMin" type="number" min="0" value="${cfg("area.ok_min_ping", 60)}"></div>
+      <div class="field"><label>好物件總坪數分數</label><input id="ruleAreaGoodPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.good_points", 3)}"></div>
+      <div class="field"><label>可接受總坪數分數</label><input id="ruleAreaOkPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.ok_points", 1.5)}"></div>
+      <div class="field"><label>偏小總坪數分數</label><input id="ruleAreaLowPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.low_points", 0)}"></div>
+    </div>
+
+    <div class="rule-section">
+      <h2>租金</h2>
       <div class="field"><label>租金佳上限 TWD</label><input id="ruleRentGoodMax" type="number" value="${cfg("rent.good_max_twd", 120000)}"></div>
       <div class="field"><label>租金可接受上限 TWD</label><input id="ruleRentOkMax" type="number" value="${cfg("rent.ok_max_twd", 200000)}"></div>
+      <div class="field"><label>租金佳分數</label><input id="ruleRentGoodPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.good_points", 2.5)}"></div>
+      <div class="field"><label>租金可接受分數</label><input id="ruleRentOkPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.ok_points", 1.2)}"></div>
+      <div class="field"><label>租金偏高分數</label><input id="ruleRentHighPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.high_points", 0)}"></div>
     </div>
 
     <div class="rule-section">
-      <h2>捷運 / 樓層</h2>
-      <div class="field"><label>捷運佳上限（分鐘）</label><input id="ruleMrtGoodMax" type="number" value="${cfg("mrt.good_max_minutes", 5)}"></div>
-      <div class="field"><label>捷運可接受上限（分鐘）</label><input id="ruleMrtOkMax" type="number" value="${cfg("mrt.ok_max_minutes", 10)}"></div>
-      <div class="field"><label>純 1F 分數</label><input id="ruleFloor1F" type="number" step="0.1" value="${cfg("floor.ground_floor_points", 1.5)}"></div>
-      <div class="field"><label>1F+2F 分數</label><input id="ruleFloor1F2F" type="number" step="0.1" value="${cfg("floor.ground_plus_second_points", 1.2)}"></div>
-    </div>
-
-    <div class="rule-section">
-      <h2>看板 / 人流 / 許可</h2>
-      <div class="field"><label>看板佳分數</label><input id="ruleSignageGood" type="number" step="0.1" value="${cfg("signage.good_points", 1)}"></div>
-      <div class="field"><label>人流佳分數</label><input id="ruleFlowGood" type="number" step="0.1" value="${cfg("pedestrian_flow.good_points", 1)}"></div>
-      <div class="field"><label>商業用途分數</label><input id="ruleZoningCommercial" type="number" step="0.1" value="${cfg("zoning_permit.commercial_points", 1)}"></div>
-    </div>
-
-    <div class="rule-section">
-      <h2>Hard Reject</h2>
-      <div class="field check-row"><input id="ruleHardRejectEnabled" type="checkbox" ${boolChecked(cfg("hard_rejects.enabled", true))}>啟用硬性淘汰</div>
-      <div class="field check-row"><input id="ruleRejectGym" type="checkbox" ${boolChecked(cfg("hard_rejects.reject_gym_not_allowed", true))}>健身房不可租就淘汰</div>
-      <div class="field check-row"><input id="ruleRejectBuilding" type="checkbox" ${boolChecked(cfg("hard_rejects.reject_major_building_risk", true))}>重大建物風險淘汰</div>
-      <div class="field check-row"><input id="ruleRejectZoning" type="checkbox" ${boolChecked(cfg("hard_rejects.reject_zoning_blocker", true))}>用途 / 執照阻礙淘汰</div>
+      <h2>樓層</h2>
+      <div class="field"><label>純 1F 分數</label><input id="ruleFloor1F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_floor_points", 2.5)}"></div>
+      <div class="field"><label>1F+2F 分數</label><input id="ruleFloor1F2F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_plus_second_points", 2)}"></div>
+      <div class="field"><label>1F+B1 分數</label><input id="ruleFloor1FB1" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_plus_basement_points", 1.8)}"></div>
+      <div class="field"><label>2F 分數</label><input id="ruleFloor2F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.second_floor_points", 1)}"></div>
     </div>
 
     <div class="rule-section">
       <h2>儲存</h2>
-      <div class="sync-note">儲存後，後端會用同一批 Google Sheet listing 重新計算分數。</div>
+      <div class="sync-note">總分上限：城市 / 區域 2.0、總坪數 3.0、租金 2.5、樓層 2.5。</div>
       <button class="small-btn primary" onclick="saveScoringRules()">儲存評分規則</button>
       <button class="small-btn" onclick="resetScoringRules()">恢復預設規則</button>
     </div>
@@ -1738,41 +1734,32 @@ function csvInput(id) {
 function readScoringRulesForm() {
   return {
     recommendation_threshold: numberInput("ruleThreshold"),
-    hard_rejects: {
-      enabled: document.getElementById("ruleHardRejectEnabled").checked,
-      reject_gym_not_allowed: document.getElementById("ruleRejectGym").checked,
-      reject_major_building_risk: document.getElementById("ruleRejectBuilding").checked,
-      reject_zoning_blocker: document.getElementById("ruleRejectZoning").checked
-    },
     city_location: {
       preferred_cities: csvInput("rulePreferredCities"),
-      preferred_districts: csvInput("rulePreferredDistricts")
+      preferred_districts: csvInput("rulePreferredDistricts"),
+      city_points: numberInput("ruleCityPoints"),
+      district_bonus_points: numberInput("ruleDistrictBonus")
     },
     area: {
       good_min_ping: numberInput("ruleAreaGoodMin"),
       good_max_ping: numberInput("ruleAreaGoodMax"),
-      ok_min_ping: numberInput("ruleAreaOkMin")
+      ok_min_ping: numberInput("ruleAreaOkMin"),
+      good_points: numberInput("ruleAreaGoodPoints"),
+      ok_points: numberInput("ruleAreaOkPoints"),
+      low_points: numberInput("ruleAreaLowPoints")
     },
     rent: {
       good_max_twd: numberInput("ruleRentGoodMax"),
-      ok_max_twd: numberInput("ruleRentOkMax")
-    },
-    mrt: {
-      good_max_minutes: numberInput("ruleMrtGoodMax"),
-      ok_max_minutes: numberInput("ruleMrtOkMax")
+      ok_max_twd: numberInput("ruleRentOkMax"),
+      good_points: numberInput("ruleRentGoodPoints"),
+      ok_points: numberInput("ruleRentOkPoints"),
+      high_points: numberInput("ruleRentHighPoints")
     },
     floor: {
       ground_floor_points: numberInput("ruleFloor1F"),
-      ground_plus_second_points: numberInput("ruleFloor1F2F")
-    },
-    signage: {
-      good_points: numberInput("ruleSignageGood")
-    },
-    pedestrian_flow: {
-      good_points: numberInput("ruleFlowGood")
-    },
-    zoning_permit: {
-      commercial_points: numberInput("ruleZoningCommercial")
+      ground_plus_second_points: numberInput("ruleFloor1F2F"),
+      ground_plus_basement_points: numberInput("ruleFloor1FB1"),
+      second_floor_points: numberInput("ruleFloor2F")
     }
   };
 }
@@ -1781,9 +1768,9 @@ async function saveScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", readScoringRulesForm());
     scoringConfig = data.scoringConfig;
-    await loadAutomatedListings();
+    await loadLocations();
     renderScoringRules();
-    alert("評分規則已儲存，既有自動物件已重新計算");
+    alert("評分規則已儲存，人工與自動物件已重新計算");
   } catch (err) {
     alert(err.message || "儲存失敗");
   }
@@ -1794,9 +1781,9 @@ async function resetScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", { reset: true });
     scoringConfig = data.scoringConfig;
-    await loadAutomatedListings();
+    await loadLocations();
     renderScoringRules();
-    alert("已重設為預設規則");
+    alert("評分規則已重設，人工與自動物件已重新計算");
   } catch (err) {
     alert(err.message || "重設失敗");
   }

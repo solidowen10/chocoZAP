@@ -12,6 +12,7 @@ const {
   normalizeListing,
   normalizeHumanFields,
   scoreListings,
+  scoreManualLocations,
   upsertListings,
   listingToLocationReviewItem,
 } = require('../lib/propertySourcing');
@@ -142,6 +143,26 @@ function scoredPayload(store = readStore(), config = readConfig()) {
   };
 }
 
+function recalculateLocationReport(config) {
+  const report = readJson(LOCATION_REPORT_FILE, null);
+  if (!report) return null;
+
+  const output = {
+    ...report,
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'Unified Scoring v1',
+    locations: scoreManualLocations(Array.isArray(report.locations) ? report.locations : [], config),
+    reviewOnly: scoreManualLocations(Array.isArray(report.reviewOnly) ? report.reviewOnly : [], config),
+  };
+
+  writeJson(LOCATION_REPORT_FILE, output);
+  return {
+    count: output.locations.length,
+    reviewOnly: output.reviewOnly.length,
+    updatedAt: output.updatedAt,
+  };
+}
+
 function importListings(rawListings, options = {}) {
   const store = readStore();
   const result = upsertListings(store.listings || [], rawListings || [], {
@@ -229,9 +250,11 @@ router.get('/api/property-sourcing/scoring-config', (req, res) => {
 router.post('/api/property-sourcing/scoring-config', requireSyncToken, (req, res) => {
   const config = req.body && req.body.reset ? defaultScoringConfig() : mergeScoringConfig(req.body || {});
   writeConfig(config);
+  const manual = recalculateLocationReport(config);
   res.json({
     ok: true,
     scoringConfig: config,
+    manual,
     preview: scoredPayload(readStore(), config),
   });
 });
