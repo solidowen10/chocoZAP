@@ -509,24 +509,258 @@ h1{font-size:34px;margin:8px 0 4px}
   .header-brand{align-items:flex-start;gap:20px}
   .header-brand h1{font-size:32px}
 }
+
+.site-header-panel{
+  background:#101113;
+  border:1px solid #26272B;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 1px 2px rgba(16,17,19,.04),0 24px 48px -30px rgba(16,17,19,.45);
+  margin-bottom:24px;
+}
+
+.site-identity{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  padding:26px 32px;
+}
+
+.site-mark{
+  width:120px;
+  flex:none;
+  display:flex;
+  align-items:center;
+}
+
+.site-mark img{
+  display:block;
+  width:100%;
+  height:auto;
+  object-fit:contain;
+}
+
+.site-title-block{
+  min-width:0;
+}
+
+.site-eyebrow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  letter-spacing:.16em;
+  text-transform:none;
+  color:#fddf00;
+  font-weight:700;
+  margin-bottom:5px;
+}
+
+.site-eyebrow span{
+  color:#4A4B4E;
+  font-weight:400;
+}
+
+.site-title-block h1{
+  margin:0;
+  color:#F6F6F3;
+  font-size:24px;
+  line-height:1.25;
+  letter-spacing:.005em;
+}
+
+.site-title-block h1 small{
+  font-size:13px;
+  color:#8D8D89;
+  font-weight:500;
+  margin-left:12px;
+}
+
+.site-nav-row{
+  display:flex;
+  align-items:center;
+  padding:0 32px;
+  border-top:1px solid #26272B;
+}
+
+.site-nav-row .source-nav{
+  display:flex;
+  gap:26px;
+  margin:0;
+}
+
+.site-nav-row .source-tab{
+  position:relative;
+  padding:14px 2px 13px;
+  background:none;
+  border:none;
+  color:#8D8D89;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  border-radius:0;
+}
+
+.site-nav-row .source-tab.active{
+  color:#F6F6F3;
+  background:none;
+}
+
+.site-nav-row .source-tab.active::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-1px;
+  height:2px;
+  background:#fddf00;
+  border-radius:2px;
+}
+
+.site-connection{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11.5px;
+  color:#6C6C68;
+}
+
+.site-connection span{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#fddf00;
+}
+
+@media(max-width:760px){
+  .site-identity{
+    padding:22px 20px;
+  }
+
+  .site-title-block h1{
+    font-size:20px;
+  }
+
+  .site-title-block h1 small{
+    display:block;
+    margin:5px 0 0;
+  }
+
+  .site-nav-row{
+    padding:0 20px;
+  }
+
+  .site-connection{
+    display:none;
+  }
+}
+
+
+.site-actions{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.site-sync-meta{
+  max-width:320px;
+  color:#8D8D89;
+  font-size:11.5px;
+  line-height:1.5;
+  text-align:right;
+}
+
+.header-sync-btn{
+  border:0;
+  border-radius:9px;
+  background:#fddf00;
+  color:#101113;
+  padding:10px 16px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+.header-sync-btn:hover{
+  transform:translateY(-1px);
+}
+
+.header-sync-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  transform:none;
+}
+
+/* Keep old elements available to JS, but remove them visually */
+#manualUpdatedInfo.sync-row,
+#autoUpdatedInfo.sync-row{
+  display:none;
+}
+
+@media(max-width:760px){
+  .site-identity{
+    flex-wrap:wrap;
+  }
+
+  .site-actions{
+    width:100%;
+    margin-left:66px;
+    justify-content:space-between;
+  }
+
+  .site-sync-meta{
+    text-align:left;
+  }
+}
+
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="header-brand">
-    <div class="brand">
-      <img src="/assets/choco-logo.png" alt="chocoZAP">
-      <span>臺灣</span>
+  <div class="site-header-panel">
+    <div class="site-identity">
+      <div class="site-mark">
+        <img src="/assets/choco-logo.png" alt="chocoZAP">
+      </div>
+
+      <div class="site-title-block">
+        <div class="site-eyebrow">
+          臺灣 <span>/</span> chocoZAP EXPANSION
+        </div>
+        <h1>
+          展店物件評估系統
+          <small>Store Site Evaluation</small>
+        </h1>
+      </div>
+
+      <div class="site-actions" id="headerSyncActions">
+        <div class="site-sync-meta" id="headerSyncMeta">
+          人工蒐集資料載入中...
+        </div>
+        <button
+          class="header-sync-btn"
+          id="headerSyncBtn"
+          onclick="syncCurrentSource()">
+          同步 Google Sheet
+        </button>
+      </div>
     </div>
-    <h1>展店物件評估系統</h1>
-  </div>
 
-  <div class="header-divider"></div>
+    <div class="site-nav-row">
+      <div class="source-nav">
+        <button class="source-tab active" data-source-view="manual">人工蒐集</button>
+        <button class="source-tab" data-source-view="automated">自動蒐集</button>
+        <button class="source-tab" data-source-view="rules">評分規則</button>
+      </div>
 
-  <div class="source-nav">
-    <button class="source-tab active" data-source-view="manual">人工蒐集</button>
-    <button class="source-tab" data-source-view="automated">自動蒐集</button>
-    <button class="source-tab" data-source-view="rules">評分規則</button>
+      <div class="site-connection">
+        <span></span>
+        資料來源已連線
+      </div>
+    </div>
   </div>
 
   <section id="manualView">
@@ -854,6 +1088,71 @@ function formatDate(value) {
   }).format(date);
 }
 
+
+function updateHeaderSyncUI() {
+  const actions = document.getElementById("headerSyncActions");
+  const meta = document.getElementById("headerSyncMeta");
+  const btn = document.getElementById("headerSyncBtn");
+
+  if (!actions || !meta || !btn) return;
+
+  if (sourceView === "rules") {
+    actions.style.display = "none";
+    return;
+  }
+
+  actions.style.display = "flex";
+
+  const sourceId =
+    sourceView === "automated"
+      ? "autoUpdatedInfo"
+      : "manualUpdatedInfo";
+
+  const sourceText =
+    document.querySelector(`#${sourceId} span`)?.textContent ||
+    (sourceView === "automated"
+      ? "自動蒐集資料載入中..."
+      : "人工蒐集資料載入中...");
+
+  meta.textContent = sourceText;
+  btn.textContent = "同步 Google Sheet";
+  btn.disabled = false;
+}
+
+async function syncCurrentSource() {
+  const btn = document.getElementById("headerSyncBtn");
+
+  if (sourceView === "rules") return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "同步中...";
+  }
+
+  try {
+    if (sourceView === "automated") {
+      await syncPropertySheet();
+    } else {
+      await syncManualSheet();
+    }
+
+    updateHeaderSyncUI();
+
+    if (btn) {
+      btn.textContent = "同步完成";
+      setTimeout(() => {
+        updateHeaderSyncUI();
+      }, 2000);
+    }
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "同步失敗";
+    }
+    throw err;
+  }
+}
+
 function wireSourceTabs() {
   document.querySelectorAll(".source-tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -873,6 +1172,8 @@ function renderSourceView() {
   if (sourceView === "manual") renderManualContent();
   if (sourceView === "automated") renderAutomatedListings();
   if (sourceView === "rules") renderScoringRules();
+
+  updateHeaderSyncUI();
 }
 
 function renderManualFilters() {
@@ -1208,10 +1509,30 @@ function renderAutoRegionTabs() {
   const tabs = document.getElementById("autoRegionTabs");
   if (!tabs) return;
 
-  const cities = [
-    "全部",
-    ...new Set(automatedListings.map(x => x.city).filter(Boolean))
+  const cityOrder = [
+    "台北市",
+    "臺北市",
+    "新北市",
+    "桃園市",
+    "新竹市",
+    "新竹縣",
+    "台中市",
+    "臺中市",
+    "台南市",
+    "臺南市",
+    "高雄市"
   ];
+
+  const availableCities = [...new Set(
+    automatedListings.map(x => x.city).filter(Boolean)
+  )];
+
+  const orderedCities = [
+    ...cityOrder.filter(city => availableCities.includes(city)),
+    ...availableCities.filter(city => !cityOrder.includes(city)).sort()
+  ];
+
+  const cities = ["全部", ...orderedCities];
 
   tabs.innerHTML = cities.map(city => `
     <button
