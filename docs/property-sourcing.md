@@ -62,17 +62,13 @@ extensions/591-radar/google-apps-script.js
 Deploy it as a Web App and paste the `/exec` URL into the Chrome Extension's
 **Google Sheet Webhook URL** field.
 
-For the server sync, either publish the `自動蒐集` tab as CSV or set:
+For the server sync, share the private Google Sheet with the service account
+configured by `GOOGLE_APPLICATION_CREDENTIALS`, then set:
 
 ```env
+GOOGLE_APPLICATION_CREDENTIALS=/opt/site-ledger/credentials/google-sheets-service-account.json
 PROPERTY_SOURCING_SHEET_ID=...
 PROPERTY_SOURCING_SHEET_TAB=自動蒐集
-```
-
-If the published CSV URL is custom, set:
-
-```env
-PROPERTY_SOURCING_SHEET_CSV_URL=https://docs.google.com/...
 ```
 
 ## Server Sync

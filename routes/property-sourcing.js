@@ -1,8 +1,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
-const { parse } = require('csv-parse/sync');
 
 const {
   HUMAN_FIELDS,
@@ -17,6 +15,7 @@ const {
   upsertListings,
   listingToLocationReviewItem,
 } = require('../lib/propertySourcing');
+const { readSheetRows } = require('../lib/googleSheets');
 
 const router = express.Router();
 
@@ -24,7 +23,6 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const STORE_FILE = path.join(DATA_DIR, 'property-sourcing.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'property-scoring-config.json');
 const LOCATION_REPORT_FILE = path.join(DATA_DIR, 'location-report.json');
-const DEFAULT_SHEET_ID = '1gPuUmnP8LqfUwFC6QFi5pBjL5BO9ZDTnAwvJG2QjlIg';
 const DEFAULT_SHEET_TAB = '自動蒐集';
 
 function ensureDataDir() {
@@ -88,14 +86,16 @@ function requireSyncToken(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
-function propertySheetCsvUrl() {
-  if (process.env.PROPERTY_SOURCING_SHEET_CSV_URL) {
-    return process.env.PROPERTY_SOURCING_SHEET_CSV_URL;
+function propertySourcingSheetId() {
+  if (!process.env.PROPERTY_SOURCING_SHEET_ID) {
+    throw new Error('PROPERTY_SOURCING_SHEET_ID is not configured');
   }
 
-  const sheetId = process.env.PROPERTY_SOURCING_SHEET_ID || DEFAULT_SHEET_ID;
-  const sheetTab = process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB;
-  return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out%3Acsv&sheet=${encodeURIComponent(sheetTab)}`;
+  return process.env.PROPERTY_SOURCING_SHEET_ID;
+}
+
+function propertySourcingSheetTab() {
+  return process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB;
 }
 
 function scoredPayload(store = readStore(), config = readConfig()) {
@@ -183,22 +183,8 @@ router.post('/api/property-sourcing/import', requireSyncToken, (req, res) => {
 
 router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, res) => {
   try {
-    const url = propertySheetCsvUrl();
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return res.status(502).json({
-        error: 'sheet_fetch_failed',
-        status: response.status,
-      });
-    }
-
-    const csv = await response.text();
-    const rows = parse(csv, {
-      columns: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-    });
+    const sheetTab = propertySourcingSheetTab();
+    const rows = await readSheetRows(propertySourcingSheetId(), sheetTab);
     const listings = rows
       .map((row) => listingFromSheetRow(row))
       .filter((listing) => listingIdentity(listing) && listing.url);
@@ -216,7 +202,7 @@ router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, r
       updated: result.updated,
       rejected: result.rejected.length,
       updatedAt: store.updatedAt,
-      sheet: process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB,
+      sheet: sheetTab,
     });
   } catch (error) {
     console.error('[property-sourcing sheet-sync]', error);
