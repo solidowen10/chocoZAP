@@ -9,7 +9,8 @@ const {
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { google } = require('googleapis');
+const fetch = require('node-fetch');
+const { parse } = require('csv-parse/sync');
 const {
   mergeScoringConfig,
   scoreManualLocations,
@@ -17,73 +18,15 @@ const {
 
 const router = express.Router();
 
+const SHEET_BASE =
+  'https://docs.google.com/spreadsheets/d/1gPuUmnP8LqfUwFC6QFi5pBjL5BO9ZDTnAwvJG2QjlIg/gviz/tq?tqx=out%3Acsv&sheet=';
 const SHEET_TABS = ['台北','桃園','竹北','台中','台南','高雄'];
-
-async function readSheetRows(sheetName) {
-  const spreadsheetId = process.env.MANUAL_RESEARCH_SHEET_ID;
-
-  if (!spreadsheetId) {
-    throw new Error('MANUAL_RESEARCH_SHEET_ID is not configured');
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-
-  const sheets = google.sheets({
-    version: 'v4',
-    auth,
-  });
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${sheetName}'!A:ZZ`,
-  });
-
-  const values = response.data.values || [];
-
-  if (!values.length) {
-    return [];
-  }
-
-  const headers = values[0];
-
-  return values.slice(1).map((valuesRow) => {
-    const row = {};
-
-    headers.forEach((header, index) => {
-      row[header] = valuesRow[index] ?? '';
-    });
-
-    return row;
-  });
-}
-async function readSheetValues(sheetName) {
-  const spreadsheetId = process.env.MANUAL_RESEARCH_SHEET_ID;
-
-  if (!spreadsheetId) {
-    throw new Error('MANUAL_RESEARCH_SHEET_ID is not configured');
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-
-  const sheets = google.sheets({
-    version: 'v4',
-    auth,
-  });
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${sheetName}'!A:ZZ`,
-  });
-
-  return response.data.values || [];
-}
 
 const REPORT = path.join(__dirname, '..', 'data', 'location-report.json');
 const SCORING_CONFIG = path.join(__dirname, '..', 'data', 'property-scoring-config.json');
+const REVIEW_SHEET =
+  'https://docs.google.com/spreadsheets/d/1gPuUmnP8LqfUwFC6QFi5pBjL5BO9ZDTnAwvJG2QjlIg/gviz/tq?tqx=out%3Acsv&sheet=' +
+  encodeURIComponent('審查物件14件');
 
 function readScoringConfig() {
   try {
@@ -184,14 +127,10 @@ router.post('/api/location-sheet-sync', async (req, res) => {
     const locations = [];
 
 for (const sheetName of SHEET_TABS) {
-  let rows;
-
-  try {
-    rows = await readSheetRows(sheetName);
-  } catch (error) {
-    console.error(`[sheet sync] ${sheetName}`, error.message);
-    continue;
-  }
+  const response = await fetch(SHEET_BASE + encodeURIComponent(sheetName));
+  if (!response.ok) { console.error(`[sheet sync] ${sheetName} HTTP ${response.status}`); continue; }
+  const csv = await response.text();
+  const rows = parse(csv, { columns: true, skip_empty_lines: true, relax_column_count: true });
 
   for (let index = 0; index < rows.length; index++) {
   const row = rows[index];
@@ -286,9 +225,16 @@ for (const sheetName of SHEET_TABS) {
   });
 }
 }
-// ===== Review sheet enrichment =====
-try {
-  const reviewRows = await readSheetValues('審查中');
+    // ===== Review sheet enrichment =====
+const reviewResponse = await fetch(REVIEW_SHEET);
+
+if (reviewResponse.ok) {
+  const reviewCsv = await reviewResponse.text();
+
+  const reviewRows = parse(reviewCsv, {
+    relax_column_count: true,
+    skip_empty_lines: true
+  });
 
   locations.forEach(x => {
     x.underReview = false;
@@ -412,9 +358,6 @@ try {
   );
 
   global.__reviewOnly = reviewOnly;
-} catch (error) {
-  console.error('[review sheet sync]', error.message);
-  global.__reviewOnly = [];
 }
 
     const scoringConfig = readScoringConfig();

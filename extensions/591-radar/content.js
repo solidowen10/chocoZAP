@@ -699,7 +699,7 @@
     return extractAddressFromTexts(collectAddressTexts(root, lines), city);
   }
 
-  function parseMrtDistanceText(value) {
+  function parseNearbyDistanceText(value) {
     const text = normalizeWhitespace(value).replace(/\s+/g, " ");
     if (!text || !/距(?:離)?/.test(text)) return null;
 
@@ -708,27 +708,27 @@
     );
     if (!match) return null;
 
-    const station = normalizeWhitespace(match[1])
+    const place = normalizeWhitespace(match[1])
       .replace(/^捷運/, "")
       .replace(/站$/, "");
     const distance = Number.parseInt(match[2].replace(/,/g, ""), 10);
 
-    if (!station || !Number.isFinite(distance)) return null;
+    if (!place || !Number.isFinite(distance)) return null;
     return {
-      mrt_station: station,
-      mrt_distance_m: distance,
+      nearby_place: place,
+      nearby_distance_m: distance,
     };
   }
 
-  function extractMrtEvidence(lines, allText) {
+  function extractNearbyEvidence(lines, allText) {
     for (const text of [...lines, allText]) {
-      const evidence = parseMrtDistanceText(text);
+      const evidence = parseNearbyDistanceText(text);
       if (evidence) return evidence;
     }
 
     return {
-      mrt_station: null,
-      mrt_distance_m: null,
+      nearby_place: null,
+      nearby_distance_m: null,
     };
   }
 
@@ -1000,7 +1000,7 @@
     const primaryAnchor = choosePrimaryAnchor(root, anchorInfo.id) || anchorInfo.anchor;
     const title = extractTitle(root, primaryAnchor, lines);
     const city = pageCity;
-    const mrtEvidence = extractMrtEvidence(lines, allText);
+    const nearbyEvidence = extractNearbyEvidence(lines, allText);
 
     return {
       source: "591",
@@ -1014,8 +1014,8 @@
       listed_area_ping: extractArea(lines, allText),
       floor_text: extractFloorText(lines, allText),
       property_type: extractPropertyType(lines),
-      mrt_station: mrtEvidence.mrt_station,
-      mrt_distance_m: mrtEvidence.mrt_distance_m,
+      nearby_place: nearbyEvidence.nearby_place,
+      nearby_distance_m: nearbyEvidence.nearby_distance_m,
       thumbnail_url: extractThumbnailUrl(root),
       scraped_at: scrapedAt,
     };
@@ -1141,16 +1141,24 @@
         "中山區-中山北路二段 距民權西路 517公尺",
         {
           address: "中山區-中山北路二段",
-          mrt_station: "民權西路",
-          mrt_distance_m: 517,
+          nearby_place: "民權西路",
+          nearby_distance_m: 517,
+        },
+      ],
+      [
+        "中山區-中山北路二段 距三姐姐早餐店 494公尺",
+        {
+          address: "中山區-中山北路二段",
+          nearby_place: "三姐姐早餐店",
+          nearby_distance_m: 494,
         },
       ],
       [
         "南港區-經園街 距捷運南港展覽館站 1,050公尺",
         {
           address: "南港區-經園街",
-          mrt_station: "南港展覽館",
-          mrt_distance_m: 1050,
+          nearby_place: "南港展覽館",
+          nearby_distance_m: 1050,
         },
       ],
     ],
@@ -1162,8 +1170,8 @@
         url: "https://rent.591.com.tw/21778960",
         district: "南港區",
         address: "南港區-經園街",
-        mrt_station: "南港展覽館",
-        mrt_distance_m: 620,
+        nearby_place: "南港展覽館",
+        nearby_distance_m: 620,
         rent_twd: 89000,
         listed_area_ping: 55,
         floor_text: "1F/15F",
@@ -1189,11 +1197,11 @@
     }
 
     for (const [input, expected] of PARSER_SELF_TEST_CASES.location_evidence) {
-      const actualMrt = parseMrtDistanceText(input);
+      const actualNearby = parseNearbyDistanceText(input);
       const actual = {
         address: extractAddressFromTexts([input], "台北市"),
-        mrt_station: actualMrt?.mrt_station || null,
-        mrt_distance_m: actualMrt?.mrt_distance_m || null,
+        nearby_place: actualNearby?.nearby_place || null,
+        nearby_distance_m: actualNearby?.nearby_distance_m || null,
       };
       for (const [key, expectedValue] of Object.entries(expected)) {
         if (actual[key] !== expectedValue) {
@@ -1210,14 +1218,14 @@
 
     const fixture = PARSER_SELF_TEST_CASES.listing_21778960;
     const parsedHref = parseRentListingHref(fixture.href);
-    const fixtureMrt = parseMrtDistanceText(fixture.text);
+    const fixtureNearby = parseNearbyDistanceText(fixture.text);
     const fixtureActual = {
       source_listing_id: parsedHref?.id || null,
       url: parsedHref?.url || null,
       district: extractDistrictFromTexts([fixture.text], "台北市"),
       address: extractAddressFromTexts([fixture.text], "台北市"),
-      mrt_station: fixtureMrt?.mrt_station || null,
-      mrt_distance_m: fixtureMrt?.mrt_distance_m || null,
+      nearby_place: fixtureNearby?.nearby_place || null,
+      nearby_distance_m: fixtureNearby?.nearby_distance_m || null,
       rent_twd: parseMonthlyRentText(fixture.text),
       listed_area_ping: parseAreaText(fixture.text),
       floor_text: extractFloorText([fixture.text], fixture.text),
