@@ -75,19 +75,6 @@ body{
   letter-spacing:2px;
 }
 
-.header-divider{
-  height:1px;
-  background:#ddd;
-  margin-bottom:28px;
-}
-
-.source-nav{
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  margin-bottom:28px;
-}
-
 .brand{
   display:flex;
   align-items:center;
@@ -116,6 +103,7 @@ body{
 }
 h1{font-size:34px;margin:8px 0 4px}
 .sub{color:var(--muted);font-size:14px}
+.header-divider{height:1px;background:#ddd;margin-bottom:28px}
 
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 20px}
 .tab{
@@ -131,7 +119,7 @@ h1{font-size:34px;margin:8px 0 4px}
 
 .summary{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(5,1fr);
   gap:12px;
   margin-bottom:22px;
 }
@@ -143,6 +131,20 @@ h1{font-size:34px;margin:8px 0 4px}
 }
 .stat b{display:block;font-size:26px}
 .stat span{font-size:12px;color:var(--muted)}
+.queue-stat {
+  cursor:pointer;
+  transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease;
+}
+
+.queue-stat:hover {
+  transform: translateY(-2px);
+}
+
+.queue-stat.active {
+  border:2px solid #111;
+  box-shadow:0 8px 20px rgba(0,0,0,.08);
+  transform:translateY(-2px);
+}
 
 .grid{
   display:grid;
@@ -415,10 +417,41 @@ h1{font-size:34px;margin:8px 0 4px}
   cursor:pointer;
 }
 
+.small-btn.active {
+  border:2px solid #111;
+  font-weight:900;
+  box-shadow:inset 0 0 0 1px #111;
+}
+
 .small-btn.primary{
   border-color:#111;
   background:#111;
   color:#fff;
+}
+
+.sync-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+
+.sync-btn {
+  background:#fff;
+  border:1px solid #ddd;
+  padding:8px 14px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:800;
+}
+
+.sync-btn:hover {
+  border-color:#999;
+}
+.sync-btn:disabled {
+  opacity:0.6;
+  cursor:not-allowed;
 }
 
 .rules-grid{
@@ -473,6 +506,8 @@ h1{font-size:34px;margin:8px 0 4px}
   .auto-meta{grid-template-columns:repeat(2,1fr)}
   .review-line{grid-template-columns:1fr}
   .rules-grid{grid-template-columns:1fr}
+  .header-brand{align-items:flex-start;gap:20px}
+  .header-brand h1{font-size:32px}
 }
 </style>
 </head>
@@ -489,19 +524,18 @@ h1{font-size:34px;margin:8px 0 4px}
   <div class="header-divider"></div>
 
   <div class="source-nav">
-    <button class="source-tab active" data-source-view="manual">Manual Research / 人工蒐集</button>
-    <button class="source-tab" data-source-view="automated">Automated Listings / 自動蒐集</button>
-    <button class="source-tab" data-source-view="rules">Scoring Rules / 評分規則</button>
+    <button class="source-tab active" data-source-view="manual">人工蒐集</button>
+    <button class="source-tab" data-source-view="automated">自動蒐集</button>
+    <button class="source-tab" data-source-view="rules">評分規則</button>
   </div>
 
   <section id="manualView">
     <div class="sync-note sync-row" id="manualUpdatedInfo">
-      <button class="sync-btn" onclick="syncManualSheet()">
-        同步 Google Sheet
-      </button>
+      <span>人工蒐集資料載入中...</span>
+      <button class="sync-btn" id="manualSyncBtn" onclick="syncManualSheet()">同步 Google Sheet</button>
     </div>
-    
-    <div class="tabs">
+
+    <div class="tabs" id="manualRegionTabs">
       <button class="tab active" data-region="全部">全部</button>
       <button class="tab" data-region="台北">台北</button>
       <button class="tab" data-region="新北">新北</button>
@@ -510,18 +544,10 @@ h1{font-size:34px;margin:8px 0 4px}
     <div class="toolbar" id="manualFilters"></div>
 
     <div class="summary">
-      <div class="stat queue-stat" data-manual-status="">
-        <b id="countAll">0</b><span>全部</span>
-      </div>
-      <div class="stat queue-stat" data-manual-status="high">
-        <b id="countHigh">0</b><span>高分物件</span>
-      </div>
-      <div class="stat queue-stat" data-manual-status="missing">
-        <b id="countCheck">0</b><span>待補資料</span>
-      </div>
-      <div class="stat queue-stat" data-manual-status="rejected">
-        <b id="countReject">0</b><span>已淘汰</span>
-      </div>
+      <div class="stat queue-stat manual-queue-stat" data-manual-status=""><b id="countAll">0</b><span>全部</span></div>
+      <div class="stat queue-stat manual-queue-stat" data-manual-status="high"><b id="countHigh">0</b><span>高分物件</span></div>
+      <div class="stat queue-stat manual-queue-stat" data-manual-status="missing"><b id="countCheck">0</b><span>待補資料</span></div>
+      <div class="stat queue-stat manual-queue-stat" data-manual-status="rejected"><b id="countReject">0</b><span>已淘汰</span></div>
     </div>
 
     <div id="grid" class="grid"></div>
@@ -534,13 +560,18 @@ h1{font-size:34px;margin:8px 0 4px}
   </section>
 
   <section id="automatedView" hidden>
-    <div class="sync-note" id="autoUpdatedInfo">自動蒐集資料載入中...</div>
+    <div class="sync-note sync-row" id="autoUpdatedInfo">
+      <span>自動蒐集資料載入中...</span>
+      <button class="sync-btn" id="autoSyncBtn" onclick="syncPropertySheet()">同步 Google Sheet</button>
+    </div>
+    <div class="tabs" id="autoRegionTabs"></div>
     <div class="toolbar" id="autoFilters"></div>
     <div class="summary">
-      <div class="stat"><b id="autoCountAll">0</b><span>自動物件</span></div>
-      <div class="stat"><b id="autoCountRecommend">0</b><span>建議看屋</span></div>
-      <div class="stat"><b id="autoCountMissing">0</b><span>缺資料</span></div>
-      <div class="stat"><b id="autoCountRejected">0</b><span>淘汰 / 封存</span></div>
+      <div class="stat queue-stat auto-queue-stat" data-auto-status=""><b id="autoCountAll">0</b><span>全部</span></div>
+      <div class="stat queue-stat auto-queue-stat" data-auto-status="new"><b id="autoCountNew">0</b><span>新物件</span></div>
+      <div class="stat queue-stat auto-queue-stat" data-auto-status="reviewing"><b id="autoCountReviewing">0</b><span>審查中</span></div>
+      <div class="stat queue-stat auto-queue-stat" data-auto-status="shortlisted"><b id="autoCountShortlisted">0</b><span>候選物件</span></div>
+      <div class="stat queue-stat auto-queue-stat" data-auto-status="rejected"><b id="autoCountRejected">0</b><span>已淘汰</span></div>
     </div>
     <div id="autoGrid" class="grid"></div>
   </section>
@@ -554,28 +585,70 @@ h1{font-size:34px;margin:8px 0 4px}
 </div>
 
 <script>
-function escapeHtml(value = "") {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 let locations = [];
 let currentRegion = "全部";
 let sourceView = "manual";
 let automatedListings = [];
 let scoringConfig = null;
 let propertySyncToken = localStorage.getItem("propertySyncToken") || "";
+const CITY_RULES = [
+  ["台北市", "台北", /台北|臺北|Taipei/i],
+  ["新北市", "新北", /新北|New Taipei/i],
+  ["桃園市", "桃園", /桃園|Taoyuan/i],
+  ["新竹縣", "竹北", /竹北|新竹縣|新竹|Hsinchu/i],
+  ["台中市", "台中", /台中|臺中|Taichung/i],
+  ["台南市", "台南", /台南|臺南|Tainan/i],
+  ["高雄市", "高雄", /高雄|Kaohsiung/i]
+];
+const DISTRICT_RULES = [
+  ["中正區", /中正區|Zhongzheng District/i],
+  ["大同區", /大同區|Datong District/i],
+  ["中山區", /中山區|Zhongshan District|Chungshan District/i],
+  ["松山區", /松山區|Songshan District/i],
+  ["大安區", /大安區|Da.?an District/i],
+  ["萬華區", /萬華區|Wanhua District/i],
+  ["信義區", /信義區|Xinyi District/i],
+  ["士林區", /士林區|Shilin District/i],
+  ["北投區", /北投區|Beitou District/i],
+  ["內湖區", /內湖區|Neihu District/i],
+  ["南港區", /南港區|Nangang District/i],
+  ["文山區", /文山區|Wenshan District/i],
+  ["板橋區", /板橋區|Banqiao District/i],
+  ["三重區", /三重區|Sanchong District/i],
+  ["新店區", /新店區|Xindian District/i],
+  ["中和區", /中和區|Zhonghe District/i],
+  ["永和區", /永和區|Yonghe District/i],
+  ["林口區", /林口區|Linkou District/i],
+  ["中壢區", /中壢區|Zhongli District/i],
+  ["桃園區", /桃園區|Taoyuan District/i],
+  ["龜山區", /龜山區|Guishan District/i],
+  ["蘆竹區", /蘆竹區|Luzhu District/i],
+  ["大園區", /大園區|Dayuan District/i],
+  ["平鎮區", /平鎮區|Pingzhen District/i],
+  ["楊梅區", /楊梅區|Yangmei District/i],
+  ["八德區", /八德區|Bade District/i],
+  ["竹北市", /竹北市|Zhubei/i],
+  ["西屯區", /西屯區|Xitun District/i],
+  ["北屯區", /北屯區|Beitun District/i],
+  ["南屯區", /南屯區|Nantun District/i],
+  ["沙鹿區", /沙鹿區|Shalu District/i],
+  ["大里區", /大里區|Dali District/i],
+  ["西區", /西區|West District/i],
+  ["東區", /東區|East District/i],
+  ["南區", /南區|South District/i],
+  ["安平區", /安平區|Anping District/i],
+  ["左營區", /左營區|Zuoying District/i],
+  ["鼓山區", /鼓山區|Gushan District/i],
+  ["苓雅區", /苓雅區|Lingya District/i],
+  ["前鎮區", /前鎮區|Qianzhen District/i],
+  ["鳳山區", /鳳山區|Fengshan District/i]
+];
 const manualFilters = {
   city: "",
   district: "",
   status: "",
   scoreMin: ""
 };
-
 const autoFilters = {
   city: "",
   district: "",
@@ -625,11 +698,11 @@ locations = [
   }))
 ];
 
-    const updated = document.getElementById("updatedInfo");
+    const updated = document.querySelector("#manualUpdatedInfo span");
 
     if (updated) {
       updated.textContent =
-        `最後更新：${formatDate(data.updatedAt)} ｜ ${data.updatedBy || "—"}`;
+        `Google Sheet 人工蒐集資料 ｜ 最後更新：${formatDate(data.updatedAt)} ｜ ${data.updatedBy || "—"}`;
     }
 
     refreshRegionTabs();
@@ -669,175 +742,62 @@ async function loadAutomatedListings() {
     scoringConfig = data.scoringConfig || scoringConfig;
 
     if (info) {
-      info.textContent =
-        `Google Sheet 自動蒐集資料：${automatedListings.length} 筆 ｜ 最後同步：${formatDate(data.updatedAt)} ｜ ${data.updatedBy || "—"}`;
+      const text = info.querySelector("span");
+      if (text) {
+        text.textContent =
+          `Google Sheet 自動蒐集資料：${automatedListings.length} 筆 ｜ 最後同步：${formatDate(data.updatedAt)} ｜ ${data.updatedBy || "—"}`;
+      }
     }
   } catch (err) {
     console.error(err);
     automatedListings = [];
     if (info) {
-      info.textContent = "無法載入自動蒐集資料。請先同步 Google Sheet。";
+      const text = info.querySelector("span");
+      if (text) text.textContent = "無法載入自動蒐集資料。請先同步 Google Sheet。";
     }
   }
 }
 
-function normalizeManualLocation(x) {
-  const text = `${x.region || ""} ${x.address || ""} ${x.station || ""}`;
-
-  let city = "";
-  let region = x.region || "";
-
-  const cityRules = [
-    ["台北市", "台北", /台北|臺北|Taipei/i],
-    ["新北市", "新北", /新北|New Taipei/i],
-    ["桃園市", "桃園", /桃園|Taoyuan/i],
-    ["新竹縣", "竹北", /竹北|新竹縣|Hsinchu County|Hsinchu/i],
-    ["台中市", "台中", /台中|臺中|Taichung/i],
-    ["台南市", "台南", /台南|臺南|Tainan/i],
-    ["高雄市", "高雄", /高雄|Kaohsiung/i]
-  ];
-
-  for (const [cityName, regionName, regex] of cityRules) {
-    if (regex.test(text)) {
-      city = cityName;
-      if (!region) region = regionName;
-      break;
-    }
-  }
-
-  const districtRules = [
-    ["大安區", /大安區|Da.?an District/i],
-    ["信義區", /信義區|Xinyi District/i],
-    ["中山區", /中山區|Zhongshan District|Chungshan District/i],
-    ["松山區", /松山區|Songshan District/i],
-    ["士林區", /士林區|Shilin District/i],
-    ["北投區", /北投區|Beitou District/i],
-    ["內湖區", /內湖區|Neihu District/i],
-    ["南港區", /南港區|Nangang District/i],
-    ["萬華區", /萬華區|Wanhua District/i],
-    ["文山區", /文山區|Wenshan District/i],
-    ["中正區", /中正區|Zhongzheng District/i],
-
-    ["板橋區", /板橋區|Banqiao District/i],
-    ["三重區", /三重區|Sanchong District/i],
-    ["新店區", /新店區|Xindian District/i],
-    ["中和區", /中和區|Zhonghe District/i],
-    ["永和區", /永和區|Yonghe District/i],
-
-    ["中壢區", /中壢區|Zhongli District/i],
-    ["桃園區", /桃園區|Taoyuan District/i],
-
-    ["竹北市", /竹北市|Zhubei/i],
-
-    ["西屯區", /西屯區|Xitun District/i],
-    ["北屯區", /北屯區|Beitun District/i],
-    ["南屯區", /南屯區|Nantun District/i],
-
-    ["東區", /東區|East District/i],
-    ["安平區", /安平區|Anping District/i],
-
-    ["左營區", /左營區|Zuoying District/i],
-    ["苓雅區", /苓雅區|Lingya District/i]
-    
-    ["林口區", /林口區|Linkou District/i],
-["龜山區", /龜山區|Guishan District/i],
-["蘆竹區", /蘆竹區|Luzhu District/i],
-["大園區", /大園區|Dayuan District/i],
-["平鎮區", /平鎮區|Pingzhen District/i],
-["楊梅區", /楊梅區|Yangmei District/i],
-["八德區", /八德區|Bade District/i],
-
-["沙鹿區", /沙鹿區|Shalu District/i],
-["大里區", /大里區|Dali District/i],
-["西區", /西區|West District/i],
-
-["東區", /東區|East District/i],
-["南區", /南區|South District/i],
-
-["左營區", /左營區|Zuoying District/i],
-["苓雅區", /苓雅區|Lingya District/i]
-  ];
-
-  let district = "";
-
-  for (const rule of districtRules) {
-    if (!Array.isArray(rule)) continue;
-
-    const name = rule[0];
-    const regex = rule[1];
-
-    if (regex && regex.test(text)) {
-      district = name;
-      break;
-    }
-  }
-  
-  if (!district) {
-  const stationRules = [
-    // 台北市
-    ["信義區", /市政府|象山|永春|信義安和/i],
-    ["大安區", /大安|科技大樓|古亭/i],
-    ["中山區", /中山|雙連|民權西路|劍南路/i],
-    ["松山區", /南京復興|松山|小巨蛋/i],
-    ["士林區", /士林|芝山|明德/i],
-    ["北投區", /石牌|北投/i],
-    ["內湖區", /內湖|文德/i],
-    ["南港區", /南港|昆陽|南港展覽館/i],
-
-    // 新北市
-    ["板橋區", /板橋|府中/i],
-    ["三重區", /三重|菜寮/i],
-    ["新店區", /新店/i],
-    ["中和區", /中和/i],
-    ["永和區", /永和|永安市場/i],
-    ["林口區", /林口/i],
-
-    // 桃園市
-    ["中壢區", /A18|高鐵桃園|桃園高鐵|中壢|環北|老街溪/i],
-    ["桃園區", /桃園站|桃園火車站/i],
-    ["龜山區", /A8|桃園機場捷運A8|體育大學|長庚/i],
-    ["蘆竹區", /山鼻/i],
-    ["大園區", /桃園體育園區|大園/i],
-    ["平鎮區", /平鎮/i],
-    ["楊梅區", /楊梅/i],
-    ["八德區", /八德/i],
-
-    // 新竹
-    ["竹北市", /竹北|高鐵新竹/i],
-
-    // 台中市
-    ["西屯區", /西屯|市政府|文心櫻花|文華高中/i],
-    ["北屯區", /北屯/i],
-    ["南屯區", /南屯/i],
-    ["大里區", /大慶|大里/i],
-    ["沙鹿區", /沙鹿/i],
-    ["西區", /草悟道|西區/i],
-
-    // 台南市
-    ["東區", /台南東區|台南.*東區/i],
-    ["安平區", /安平/i],
-
-    // 高雄市
-    ["左營區", /左營|高鐵左營/i],
-    ["苓雅區", /苓雅/i],
-    ["三民區", /三民/i],
-    ["鼓山區", /鼓山/i]
-  ];
-
-  for (const [name, regex] of stationRules) {
-    if (regex.test(text)) {
-      district = name;
-      break;
-    }
-  }
+function cityToRegion(city = "") {
+  const found = CITY_RULES.find(([cityName]) => cityName === city);
+  return found ? found[1] : String(city || "").replace(/市$|縣$/, "");
 }
+
+function regionToCity(region = "") {
+  const cleanRegion = String(region).replace(/\s+\d+$/, "");
+  const found = CITY_RULES.find(([, regionName]) => regionName === cleanRegion);
+  return found ? found[0] : "";
+}
+
+function normalizeCity(value = "") {
+  const text = String(value || "");
+  const exact = CITY_RULES.find(([cityName, regionName]) =>
+    text === cityName || text === regionName
+  );
+  if (exact) return exact[0];
+  const matched = CITY_RULES.find(([, , regex]) => regex.test(text));
+  return matched ? matched[0] : "";
+}
+
+function detectDistrict(text = "") {
+  const matched = DISTRICT_RULES.find(([, regex]) => regex.test(text));
+  return matched ? matched[0] : "";
+}
+
+function normalizeManualLocation(x = {}) {
+  const text = `${x.city || ""} ${x.district || ""} ${x.region || ""} ${x.address || ""} ${x.station || ""} ${x.mrt || ""}`;
+  const city = normalizeCity(x.city) || normalizeCity(x.region) || normalizeCity(text);
+  const region = x.region || cityToRegion(city);
+  const district = x.district || detectDistrict(text);
+
   return {
-  ...x,
-  region,
-  city,
-  district: district || "待確認"
-};
+    ...x,
+    city,
+    region,
+    district
+  };
 }
+
 function shortAddress(address = "") {
   let s = String(address).trim();
 
@@ -915,39 +875,82 @@ function renderSourceView() {
   if (sourceView === "rules") renderScoringRules();
 }
 
+function renderManualFilters() {
+  const cities = [...new Set(locations.map(x => x.city).filter(Boolean))];
+  const districts = [...new Set(locations
+    .filter(x => !manualFilters.city || x.city === manualFilters.city)
+    .map(x => x.district)
+    .filter(Boolean))];
+
+  document.getElementById("manualFilters").innerHTML = `
+    <div>
+      <label>城市</label>
+      <select onchange="updateManualFilter('city', this.value)">
+        <option value="">全部</option>
+        ${cities.map(v => `<option value="${escapeHtml(v)}" ${manualFilters.city === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}
+      </select>
+    </div>
+    <div>
+      <label>行政區</label>
+      <select onchange="updateManualFilter('district', this.value)">
+        <option value="">全部</option>
+        ${districts.map(v => `<option value="${escapeHtml(v)}" ${manualFilters.district === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}
+      </select>
+    </div>
+    <div>
+      <label>分數 ≥</label>
+      <input type="number" min="0" max="10" step="0.5" value="${escapeHtml(manualFilters.scoreMin)}" onchange="updateManualFilter('scoreMin', this.value)" placeholder="例如 8">
+    </div>
+  `;
+}
+
 function refreshRegionTabs() {
-  const tabs = document.querySelector(".tabs");
+  const tabs = document.getElementById("manualRegionTabs");
+  if (!tabs) return;
 
-  const reviewCount = locations.filter(x =>
-  x.underReview === true || x.reviewOnly === true
-).length;
-
-const regions = [
-  "全部",
-  `審查中 ${reviewCount}`,
-  ...new Set(locations.map(x => x.region).filter(Boolean))
-];
+  const regions = [
+    "全部",
+    ...new Set(locations.map(x => x.region).filter(Boolean))
+  ];
 
   tabs.innerHTML = regions.map(region => `
     <button
       class="tab ${region === currentRegion ? "active" : ""}"
-      data-region="${region}"
+      data-region="${escapeHtml(region)}"
+      onclick="selectManualRegion('${escapeJs(region)}')"
     >
-      ${region}
+      ${escapeHtml(region)}
     </button>
   `).join("");
+}
 
-  tabs.querySelectorAll(".tab").forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentRegion = btn.dataset.region;
+function selectManualRegion(region) {
+  currentRegion = region || "全部";
+  manualFilters.city = currentRegion === "全部" ? "" : regionToCity(currentRegion);
+  manualFilters.district = "";
+  renderManualContent();
+}
 
-      tabs.querySelectorAll(".tab")
-        .forEach(x => x.classList.remove("active"));
+function updateManualFilter(key, value) {
+  manualFilters[key] = value;
+  if (key === "city") {
+    manualFilters.district = "";
+    currentRegion = value ? cityToRegion(value) : "全部";
+  }
+  renderManualContent();
+}
 
-      btn.classList.add("active");
-
-      renderManualContent();
-    });
+function filteredManualLocations({ includeStatus = true } = {}) {
+  return locations.filter(x => {
+    if (manualFilters.city && x.city !== manualFilters.city) return false;
+    if (manualFilters.district && x.district !== manualFilters.district) return false;
+    if (manualFilters.scoreMin && (x.aiScore == null || x.aiScore < Number(manualFilters.scoreMin))) return false;
+    if (includeStatus) {
+      if (manualFilters.status === "high" && (x.rejected || (x.aiScore || 0) < 8)) return false;
+      if (manualFilters.status === "missing" && (x.rejected || (x.aiScore || 0) >= 8)) return false;
+      if (manualFilters.status === "rejected" && !x.rejected) return false;
+    }
+    return true;
   });
 }
 
@@ -957,118 +960,11 @@ function colorClass(item){
   return "yellow";
 }
 
-function renderManualFilters() {
-  const cities = [...new Set(
-    locations.map(x => x.city).filter(Boolean)
-  )];
-
-  const districts = [...new Set(
-    locations
-      .filter(x => !manualFilters.city || x.city === manualFilters.city)
-      .map(x => x.district)
-      .filter(x => x && x !== "待確認")
-  )];
-
-  document.getElementById("manualFilters").innerHTML = `
-    <div>
-      <label>城市</label>
-      <select onchange="updateManualFilter('city', this.value)">
-        <option value="">全部</option>
-        ${cities.map(v =>
-          `<option value="${escapeHtml(v)}" ${manualFilters.city === v ? "selected" : ""}>${escapeHtml(v)}</option>`
-        ).join("")}
-      </select>
-    </div>
-
-    <div>
-      <label>行政區</label>
-      <select onchange="updateManualFilter('district', this.value)">
-        <option value="">全部</option>
-        ${districts.map(v =>
-          `<option value="${escapeHtml(v)}" ${manualFilters.district === v ? "selected" : ""}>${escapeHtml(v)}</option>`
-        ).join("")}
-      </select>
-    </div>
-  `;
-}
-
-function updateManualFilter(key, value) {
-  manualFilters[key] = value;
-
-  const cityToRegion = {
-    "台北市": "台北",
-    "新北市": "新北",
-    "桃園市": "桃園",
-    "新竹縣": "竹北",
-    "台中市": "台中",
-    "台南市": "台南",
-    "高雄市": "高雄"
-  };
-
-  if (key === "city") {
-    manualFilters.district = "";
-
-    currentRegion = cityToRegion[value] || "全部";
-  }
-
-  renderManualContent();
-  refreshRegionTabs();
-}
-function wireManualQueue() {
-  document.querySelectorAll(".queue-stat").forEach(btn => {
-    btn.onclick = () => {
-      const status = btn.dataset.manualStatus || "";
-
-      if (manualFilters.status === status) {
-        manualFilters.status = "";
-      } else {
-        manualFilters.status = status;
-      }
-
-      document.querySelectorAll(".queue-stat")
-        .forEach(x => {
-          x.classList.toggle(
-            "active",
-            x.dataset.manualStatus === manualFilters.status
-          );
-        });
-
-      renderManualContent();
-    };
-  });
-}
-
 function renderManualContent(){
-
+  refreshRegionTabs();
   renderManualFilters();
-  wireManualQueue();
-
-  const filtered = locations
-  .filter(x => {
-
-    if (manualFilters.city && x.city !== manualFilters.city)
-      return false;
-
-    if (manualFilters.district && x.district !== manualFilters.district)
-      return false;
-    if (manualFilters.status === "high" && x.aiScore < 8)
-      return false;
-
-    if (manualFilters.status === "missing" && !(x.aiScore < 8 && !x.rejected))
-      return false;
-
-    if (manualFilters.status === "rejected" && !x.rejected)
-      return false;
-
-    if (currentRegion === "全部") return true;
-
-    if (currentRegion.startsWith("審查中")) {
-      return x.underReview === true || x.reviewOnly === true;
-    }
-
-    return x.region === currentRegion;
-  })
-  .sort((a,b) => (b.aiScore || 0) - (a.aiScore || 0));
+  syncQueueActiveStates();
+  const filtered = filteredManualLocations().sort((a,b) => (b.aiScore || 0) - (a.aiScore || 0));
 
   document.getElementById("grid").innerHTML = filtered.map(x => {
     const extraScore = x.secondaryScore ? `
@@ -1170,25 +1066,14 @@ ${x.nakamuraScore ? `
     `;
   }).join("");
 
-  const summaryList = locations.filter(x => {
-  if (manualFilters.city && x.city !== manualFilters.city)
-    return false;
-
-  if (manualFilters.district && x.district !== manualFilters.district)
-    return false;
-
-  return true;
-});
-
-document.getElementById("countAll").textContent = summaryList.length;
-document.getElementById("countHigh").textContent =
-  summaryList.filter(x => x.aiScore >= 8 && !x.rejected).length;
-
-document.getElementById("countCheck").textContent =
-  summaryList.filter(x => x.aiScore < 8 && !x.rejected).length;
-
-document.getElementById("countReject").textContent =
-  summaryList.filter(x => x.rejected).length;
+  const summaryList = filteredManualLocations({ includeStatus: false });
+  document.getElementById("countAll").textContent = summaryList.length;
+  document.getElementById("countHigh").textContent =
+    summaryList.filter(x => x.aiScore >= 8 && !x.rejected).length;
+  document.getElementById("countCheck").textContent =
+    summaryList.filter(x => x.aiScore < 8 && !x.rejected).length;
+  document.getElementById("countReject").textContent =
+    summaryList.filter(x => x.rejected).length;
 }
 
 function recommendationLabel(value) {
@@ -1202,12 +1087,29 @@ function recommendationLabel(value) {
 
 function statusLabelAuto(value) {
   return {
-    new: "new",
-    reviewing: "reviewing",
-    shortlisted: "shortlisted",
-    rejected: "rejected",
-    archived: "archived"
-  }[value] || value || "new";
+    new: "新物件",
+    reviewing: "審查中",
+    shortlisted: "候選物件",
+    rejected: "已淘汰",
+    archived: "已封存"
+  }[value] || value || "新物件";
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function escapeJs(value = "") {
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "");
 }
 
 function twd(value) {
@@ -1268,7 +1170,13 @@ function renderAutoFilters() {
       <label>狀態</label>
       <select onchange="updateAutoFilter('status', this.value)">
         <option value="">全部</option>
-        ${["new","reviewing","shortlisted","rejected","archived"].map(v => `<option value="${v}" ${autoFilters.status === v ? "selected" : ""}>${v}</option>`).join("")}
+        ${[
+          ["new","新物件"],
+          ["reviewing","審查中"],
+          ["shortlisted","候選物件"],
+          ["rejected","已淘汰"],
+          ["archived","已封存"]
+        ].map(([value,label]) => `<option value="${value}" ${autoFilters.status === value ? "selected" : ""}>${label}</option>`).join("")}
       </select>
     </div>
     <div>
@@ -1283,9 +1191,6 @@ function renderAutoFilters() {
       <label>分數 ≥</label>
       <input type="number" min="0" max="10" step="0.5" value="${escapeHtml(autoFilters.scoreMin)}" onchange="updateAutoFilter('scoreMin', this.value)" placeholder="例如 8">
     </div>
-    <div>
-      <button class="small-btn primary" onclick="syncPropertySheet()">從 Google Sheet 同步</button>
-    </div>
   `;
 }
 
@@ -1295,17 +1200,84 @@ function updateAutoFilter(key, value) {
   renderAutomatedListings();
 }
 
-function renderAutomatedListings() {
-  renderAutoFilters();
-  const filtered = filteredAutomatedListings();
-  const recommendCount = filtered.filter(x => x.recommendation === "recommend_viewing").length;
-  const missingCount = filtered.filter(x => Array.isArray(x.missing_data) && x.missing_data.length).length;
-  const rejectedCount = filtered.filter(x => ["rejected","archived"].includes(x.status) || x.recommendation === "reject").length;
+function renderAutoRegionTabs() {
+  const tabs = document.getElementById("autoRegionTabs");
+  if (!tabs) return;
 
-  document.getElementById("autoCountAll").textContent = filtered.length;
-  document.getElementById("autoCountRecommend").textContent = recommendCount;
-  document.getElementById("autoCountMissing").textContent = missingCount;
-  document.getElementById("autoCountRejected").textContent = rejectedCount;
+  const cities = [
+    "全部",
+    ...new Set(automatedListings.map(x => x.city).filter(Boolean))
+  ];
+
+  tabs.innerHTML = cities.map(city => `
+    <button
+      class="tab ${(!autoFilters.city && city === "全部") || autoFilters.city === city ? "active" : ""}"
+      onclick="selectAutoRegion('${escapeJs(city)}')">
+      ${escapeHtml(city === "全部" ? city : cityToRegion(city))}
+    </button>
+  `).join("");
+}
+
+function selectAutoRegion(city) {
+  autoFilters.city = city === "全部" ? "" : city;
+  autoFilters.district = "";
+  renderAutomatedListings();
+}
+
+function filteredAutomatedListingsForCounts() {
+  return automatedListings.filter(x => {
+    if (autoFilters.city && x.city !== autoFilters.city) return false;
+    if (autoFilters.district && x.district !== autoFilters.district) return false;
+    if (autoFilters.rentMax && (x.rent_twd == null || x.rent_twd > Number(autoFilters.rentMax))) return false;
+    if (autoFilters.listedAreaMin && (x.listed_area_ping == null || x.listed_area_ping < Number(autoFilters.listedAreaMin))) return false;
+    if (autoFilters.scoreMin && (x.score == null || x.score < Number(autoFilters.scoreMin))) return false;
+    return true;
+  });
+}
+
+function syncQueueActiveStates() {
+  document.querySelectorAll(".manual-queue-stat").forEach(btn => {
+    btn.classList.toggle("active", (btn.dataset.manualStatus || "") === manualFilters.status);
+  });
+  document.querySelectorAll(".auto-queue-stat").forEach(btn => {
+    btn.classList.toggle("active", (btn.dataset.autoStatus || "") === autoFilters.status);
+  });
+}
+
+function wireQueueCards() {
+  document.querySelectorAll(".manual-queue-stat").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const status = btn.dataset.manualStatus || "";
+      manualFilters.status = manualFilters.status === status ? "" : status;
+      renderManualContent();
+    });
+  });
+
+  document.querySelectorAll(".auto-queue-stat").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const status = btn.dataset.autoStatus || "";
+      autoFilters.status = autoFilters.status === status ? "" : status;
+      renderAutomatedListings();
+    });
+  });
+}
+
+function renderAutomatedListings() {
+  renderAutoRegionTabs();
+  renderAutoFilters();
+  syncQueueActiveStates();
+  const filtered = filteredAutomatedListings();
+  const summaryList = filteredAutomatedListingsForCounts();
+
+  document.getElementById("autoCountAll").textContent = summaryList.length;
+  document.getElementById("autoCountNew").textContent =
+    summaryList.filter(x => (x.status || "new") === "new").length;
+  document.getElementById("autoCountReviewing").textContent =
+    summaryList.filter(x => x.status === "reviewing").length;
+  document.getElementById("autoCountShortlisted").textContent =
+    summaryList.filter(x => x.status === "shortlisted").length;
+  document.getElementById("autoCountRejected").textContent =
+    summaryList.filter(x => ["rejected","archived"].includes(x.status)).length;
 
   document.getElementById("autoGrid").innerHTML = filtered.map(x => `
     <article class="card listing-card">
@@ -1333,8 +1305,9 @@ function renderAutomatedListings() {
           <div><small>人工可用坪數</small><strong>${x.usable_area_ping == null ? "待確認" : ping(x.usable_area_ping)}</strong></div>
           <div><small>樓層</small><strong>${escapeHtml(x.floor_text || "待確認")}</strong></div>
           <div><small>地址</small><strong>${escapeHtml(x.address || "待確認")}</strong></div>
-          <div><small>附近地點</small><strong>${escapeHtml(x.nearby_place || "待確認")}${x.nearby_distance_m == null ? "" : ` · ${x.nearby_distance_m} 公尺`}</strong></div>
-          <div><small>捷運</small><strong>${escapeHtml(x.mrt_station || "待確認")}${x.mrt_minutes == null ? "" : ` · ${x.mrt_minutes} 分`}</strong></div>
+          <div><small>附近地點</small><strong>${escapeHtml(x.nearby_place || "待確認")}</strong></div>
+          <div><small>距離（公尺）</small><strong>${x.nearby_distance_m == null ? "待確認" : escapeHtml(Number(x.nearby_distance_m).toLocaleString("zh-TW"))}</strong></div>
+          <div><small>捷運</small><strong>${escapeHtml(x.mrt_station || "待確認")}${x.mrt_minutes == null ? "" : ` · ${escapeHtml(x.mrt_minutes)} 分`}</strong></div>
           <div><small>類型</small><strong>${escapeHtml(x.property_type || "待確認")}</strong></div>
           <div><small>推薦程度</small><strong><span class="pill ${x.recommendation}">${recommendationLabel(x.recommendation)}</span></strong></div>
           <div><small>狀態</small><strong>${statusLabelAuto(x.status)}</strong></div>
@@ -1345,10 +1318,10 @@ function renderAutomatedListings() {
           <div class="scorebox"><b>下一步</b><small>${escapeHtml(x.next_step || "補齊資料後評估")}</small></div>
         </div>
         <div class="card-actions">
-          <a class="small-btn" href="${escapeHtml(x.url)}" target="_blank" rel="noopener noreferrer">591 原始頁</a>
-          <button class="small-btn" onclick="patchAutomatedStatus('${sourceId(x)}','reviewing')">標記 reviewing</button>
-          <button class="small-btn" onclick="patchAutomatedStatus('${sourceId(x)}','shortlisted')">shortlist</button>
-          <button class="small-btn" onclick="patchAutomatedStatus('${sourceId(x)}','rejected')">rejected</button>
+          <a class="small-btn" href="${escapeHtml(x.url)}" target="_blank" rel="noopener noreferrer">查看 591</a>
+          <button class="small-btn ${x.status === "reviewing" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','reviewing')">${x.status === "reviewing" ? "✓ 已審查" : "開始審查"}</button>
+          <button class="small-btn ${x.status === "shortlisted" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','shortlisted')">${x.status === "shortlisted" ? "✓ 已加入候選" : "加入候選"}</button>
+          <button class="small-btn ${x.status === "rejected" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','rejected')">${x.status === "rejected" ? "✓ 已淘汰" : "淘汰"}</button>
           <button class="small-btn primary" onclick="promoteToLocationReview('${sourceId(x)}')">送到 Location Review</button>
         </div>
       </div>
@@ -1399,60 +1372,60 @@ async function propertyWriteApi(method, path, body) {
 }
 
 async function syncPropertySheet() {
-  try {
-    await propertyWriteApi("POST", "/api/property-sourcing/sheet-sync", {});
-    await loadAutomatedListings();
-    renderAutomatedListings();
-    alert("已從 Google Sheet 同步自動物件");
-  } catch (err) {
-    alert(err.message || "同步失敗");
-  }
-}
-
-async function syncManualSheet() {
-  const btn = document.querySelector('[onclick="syncManualSheet()"]');
-
+  const btn = document.getElementById("autoSyncBtn");
   if (btn) {
     btn.disabled = true;
     btn.textContent = "同步中...";
   }
 
   try {
-    const res = await fetch('/api/location-sheet-sync', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${propertySyncToken}`
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    await loadLocations();
-
-    if (btn) {
-      btn.textContent = "同步完成";
-    }
-
-    alert("已同步人工蒐集 Google Sheet");
-
+    await propertyWriteApi("POST", "/api/property-sourcing/sheet-sync", {});
+    await loadAutomatedListings();
+    renderAutomatedListings();
+    if (btn) btn.textContent = "同步完成";
+    alert("已完成同步 Google Sheet");
     setTimeout(() => {
       if (btn) {
         btn.textContent = "同步 Google Sheet";
         btn.disabled = false;
       }
     }, 2000);
-
   } catch (err) {
     if (btn) {
       btn.textContent = "同步失敗";
       btn.disabled = false;
     }
-
     alert(err.message || "同步失敗");
   }
 }
+
+async function syncManualSheet() {
+  const btn = document.getElementById("manualSyncBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "同步中...";
+  }
+
+  try {
+    await propertyWriteApi("POST", "/api/location-sheet-sync", {});
+    await loadLocations();
+    if (btn) btn.textContent = "同步完成";
+    alert("已同步人工蒐集 Google Sheet");
+    setTimeout(() => {
+      if (btn) {
+        btn.textContent = "同步 Google Sheet";
+        btn.disabled = false;
+      }
+    }, 2000);
+  } catch (err) {
+    if (btn) {
+      btn.textContent = "同步失敗";
+      btn.disabled = false;
+    }
+    alert(err.message || "同步失敗");
+  }
+}
+
 async function patchAutomatedStatus(encodedIdentity, status) {
   const { source, sourceListingId } = splitSourceId(encodedIdentity);
   try {
@@ -1614,6 +1587,7 @@ async function resetScoringRules() {
 }
 
 wireSourceTabs();
+wireQueueCards();
 loadLocations();
 </script>
 </body>
