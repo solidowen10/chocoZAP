@@ -1,8 +1,12 @@
 const assert = require('assert');
 
 const {
+  applyCurrentSheetListingIds,
   classifyNearbyPlace,
   defaultScoringConfig,
+  filterListingsByCurrentSheetIds,
+  listingIdentities,
+  listingIdentity,
   manualLocationToScoringListing,
   normalizeListing,
   scoreManualLocation,
@@ -10,6 +14,23 @@ const {
   scoreListing,
   scoreListings,
 } = require('../lib/propertySourcing');
+
+function makeAutomatedListing(id, patch = {}) {
+  return normalizeListing({
+    source: '591',
+    source_listing_id: String(id),
+    url: `https://rent.591.com.tw/${id}`,
+    title: `測試物件 ${id}`,
+    city: '台北市',
+    district: '南港區',
+    rent_twd: 100000,
+    listed_area_ping: 100,
+    floor_text: '1F/5F',
+    first_seen_at: '2026-08-01T00:00:00.000Z',
+    last_seen_at: '2026-08-01T00:00:00.000Z',
+    ...patch,
+  });
+}
 
 function testUpsertPreventsDuplicates() {
   const now = '2026-08-14T00:00:00.000Z';
@@ -81,6 +102,89 @@ function testCrawlerReimportPreservesHumanFields() {
   assert.strictEqual(listing.nearby_place_type, 'mrt');
   assert.strictEqual(listing.nearby_distance_m, 450);
   assert.strictEqual(listing.manual_notes, '已約房仲確認');
+}
+
+function testCurrentSheetMembershipFiltersListingsWithoutDeletingHistory() {
+  const historicalListings = Array.from({ length: 143 }, (_, index) => makeAutomatedListing(index + 1));
+  const firstCurrentIds = listingIdentities(historicalListings.slice(0, 84));
+
+  assert.strictEqual(firstCurrentIds.length, 84);
+
+  const firstStore = applyCurrentSheetListingIds(
+    { listings: historicalListings, currentSheetListingIds: null, currentSheetSyncedAt: null },
+    firstCurrentIds,
+    '2026-08-17T00:00:00.000Z',
+  );
+  const firstPayloadListings = scoreListings(
+    filterListingsByCurrentSheetIds(firstStore.listings, firstStore.currentSheetListingIds),
+    defaultScoringConfig(),
+  );
+
+  assert.strictEqual(firstStore.listings.length, 143);
+  assert.strictEqual(firstPayloadListings.length, 84);
+  assert.deepStrictEqual(
+    listingIdentities(firstPayloadListings),
+    firstCurrentIds,
+  );
+
+  const removedListing = historicalListings[0];
+  const removedIdentity = listingIdentity(removedListing);
+  const secondCurrentIds = listingIdentities(historicalListings.slice(1, 85));
+  const secondStore = applyCurrentSheetListingIds(
+    firstStore,
+    secondCurrentIds,
+    '2026-08-17T01:00:00.000Z',
+  );
+  const secondPayloadListings = filterListingsByCurrentSheetIds(
+    secondStore.listings,
+    secondStore.currentSheetListingIds,
+  );
+
+  assert.strictEqual(secondCurrentIds.length, 84);
+  assert.strictEqual(secondPayloadListings.length, 84);
+  assert(!secondPayloadListings.some((listing) => listingIdentity(listing) === removedIdentity));
+  assert(secondStore.listings.some((listing) => listingIdentity(listing) === removedIdentity));
+  assert.strictEqual(secondStore.listings.length, 143);
+
+  const thirdStore = applyCurrentSheetListingIds(
+    secondStore,
+    listingIdentities([removedListing, ...historicalListings.slice(1, 85)]),
+    '2026-08-17T02:00:00.000Z',
+  );
+  const thirdPayloadListings = filterListingsByCurrentSheetIds(
+    thirdStore.listings,
+    thirdStore.currentSheetListingIds,
+  );
+
+  assert.strictEqual(thirdPayloadListings.length, 85);
+  assert(thirdPayloadListings.some((listing) => listingIdentity(listing) === removedIdentity));
+  assert.strictEqual(thirdStore.listings.length, 143);
+
+  const failedSyncStore = applyCurrentSheetListingIds(
+    thirdStore,
+    undefined,
+    '2026-08-17T03:00:00.000Z',
+  );
+
+  assert.deepStrictEqual(failedSyncStore.currentSheetListingIds, thirdStore.currentSheetListingIds);
+  assert.strictEqual(failedSyncStore.currentSheetSyncedAt, thirdStore.currentSheetSyncedAt);
+  assert.strictEqual(
+    filterListingsByCurrentSheetIds(failedSyncStore.listings, failedSyncStore.currentSheetListingIds).length,
+    85,
+  );
+
+  const emptySheetStore = applyCurrentSheetListingIds(
+    failedSyncStore,
+    [],
+    '2026-08-17T04:00:00.000Z',
+  );
+
+  assert.deepStrictEqual(emptySheetStore.currentSheetListingIds, []);
+  assert.strictEqual(
+    filterListingsByCurrentSheetIds(emptySheetStore.listings, emptySheetStore.currentSheetListingIds).length,
+    0,
+  );
+  assert.strictEqual(emptySheetStore.listings.length, 143);
 }
 
 function testNearbyPlaceClassifier() {
@@ -339,6 +443,7 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
 
 testUpsertPreventsDuplicates();
 testCrawlerReimportPreservesHumanFields();
+testCurrentSheetMembershipFiltersListingsWithoutDeletingHistory();
 testNearbyPlaceClassifier();
 testListedAreaDrivesScoring();
 testScoringChangesWhenConfigChanges();

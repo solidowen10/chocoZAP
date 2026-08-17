@@ -8,8 +8,11 @@ const {
   mergeScoringConfig,
   listingFromSheetRow,
   listingIdentity,
+  listingIdentities,
   normalizeListing,
   normalizeHumanFields,
+  applyCurrentSheetListingIds,
+  filterListingsByCurrentSheetIds,
   scoreListings,
   scoreManualLocations,
   upsertListings,
@@ -48,6 +51,8 @@ function readStore() {
     updatedBy: null,
     listings: [],
     lastImport: null,
+    currentSheetListingIds: null,
+    currentSheetSyncedAt: null,
   });
 }
 
@@ -100,15 +105,20 @@ function propertySourcingSheetTab() {
 
 function scoredPayload(store = readStore(), config = readConfig()) {
   const scoringConfig = mergeScoringConfig(config);
-  const listings = scoreListings(store.listings || [], scoringConfig);
+  const sourceListings = filterListingsByCurrentSheetIds(store.listings || [], store.currentSheetListingIds);
+  const listings = scoreListings(sourceListings, scoringConfig);
+  const hasCurrentSheetMembership = Array.isArray(store.currentSheetListingIds);
 
   return {
     updatedAt: store.updatedAt || null,
     updatedBy: store.updatedBy || null,
     count: listings.length,
+    historicalCount: (store.listings || []).length,
     listings,
     scoringConfig,
     lastImport: store.lastImport || null,
+    currentSheetListingCount: hasCurrentSheetMembership ? store.currentSheetListingIds.length : null,
+    currentSheetSyncedAt: store.currentSheetSyncedAt || null,
   };
 }
 
@@ -134,17 +144,18 @@ function recalculateLocationReport(config) {
 
 function importListings(rawListings, options = {}) {
   const store = readStore();
+  const now = options.now || new Date().toISOString();
   const result = upsertListings(store.listings || [], rawListings || [], {
-    now: options.now || new Date().toISOString(),
+    now,
   });
 
-  const output = {
+  let output = {
     ...store,
-    updatedAt: options.now || new Date().toISOString(),
+    updatedAt: now,
     updatedBy: options.updatedBy || 'Property Sourcing Import',
     listings: result.listings,
     lastImport: {
-      importedAt: options.now || new Date().toISOString(),
+      importedAt: now,
       importedBy: options.updatedBy || 'Property Sourcing Import',
       created: result.created,
       updated: result.updated,
@@ -152,6 +163,8 @@ function importListings(rawListings, options = {}) {
       source: options.source || 'api',
     },
   };
+
+  output = applyCurrentSheetListingIds(output, options.currentSheetListingIds, now);
 
   writeStore(output);
   return { store: output, result };
@@ -188,15 +201,18 @@ router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, r
     const listings = rows
       .map((row) => listingFromSheetRow(row))
       .filter((listing) => listingIdentity(listing) && listing.url);
+    const currentSheetListingIds = listingIdentities(listings);
 
     const { store, result } = importListings(listings, {
       updatedBy: 'Property Google Sheet Sync',
       source: 'google-sheet',
+      currentSheetListingIds,
     });
 
     return res.json({
       ok: true,
       count: store.listings.length,
+      currentSheetListingCount: currentSheetListingIds.length,
       rows: rows.length,
       created: result.created,
       updated: result.updated,
