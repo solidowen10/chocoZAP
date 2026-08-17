@@ -8,10 +8,13 @@ const CRAWLER_HEADERS = [
   'title',
   'city',
   'district',
+  'address',
   'rent_twd',
   'listed_area_ping',
   'floor_text',
   'property_type',
+  'mrt_station',
+  'mrt_distance_m',
   'thumbnail_url',
   'scraped_at',
   'first_seen_at',
@@ -21,7 +24,6 @@ const CRAWLER_HEADERS = [
 const HUMAN_HEADERS = [
   'status',
   'usable_area_ping',
-  'mrt_station',
   'mrt_minutes',
   'signage',
   'pedestrian_flow',
@@ -36,6 +38,7 @@ const HUMAN_HEADERS = [
 ];
 
 const ALL_HEADERS = [...CRAWLER_HEADERS, ...HUMAN_HEADERS];
+const PRESERVE_ON_UPDATE_HEADERS = [...HUMAN_HEADERS, 'mrt_station'];
 
 function doPost(event) {
   try {
@@ -87,7 +90,7 @@ function upsertListings(listings) {
         first_seen_at: existing.first_seen_at || normalized.first_seen_at || now,
         last_seen_at: now,
       };
-      for (const header of HUMAN_HEADERS) {
+      for (const header of PRESERVE_ON_UPDATE_HEADERS) {
         merged[header] = existing[header] || normalized[header] || '';
       }
       sheet.getRange(rowNumber, 1, 1, headers.length).setValues([headers.map((header) => merged[header] || '')]);
@@ -152,10 +155,13 @@ function normalizeListing(listing, now) {
     title: listing.title || '',
     city: listing.city || '',
     district: listing.district || '',
+    address: listing.address || '',
     rent_twd: listing.rent_twd || '',
     listed_area_ping: listing.listed_area_ping || '',
     floor_text: listing.floor_text || '',
     property_type: listing.property_type || '',
+    mrt_station: listing.mrt_station || '',
+    mrt_distance_m: listing.mrt_distance_m || '',
     thumbnail_url: listing.thumbnail_url || '',
     scraped_at: listing.scraped_at || now,
     first_seen_at: listing.first_seen_at || now,

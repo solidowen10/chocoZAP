@@ -51,6 +51,8 @@ function testCrawlerReimportPreservesHumanFields() {
     status: 'reviewing',
     usable_area_ping: 52,
     mrt_station: '南港展覽館',
+    address: '台北市南港區經園街',
+    mrt_distance_m: 620,
     manual_notes: '已約房仲確認',
   }];
 
@@ -60,6 +62,9 @@ function testCrawlerReimportPreservesHumanFields() {
     url: 'https://rent.591.com.tw/21778960',
     title: '東方晶璽大樓 crawler update',
     rent_twd: 89000,
+    address: '南港區-經園街',
+    mrt_station: '後山埤',
+    mrt_distance_m: 450,
     usable_area_ping: '',
     manual_notes: '',
   }], { now: '2026-08-15T00:00:00.000Z' });
@@ -69,6 +74,8 @@ function testCrawlerReimportPreservesHumanFields() {
   assert.strictEqual(listing.status, 'reviewing');
   assert.strictEqual(listing.usable_area_ping, 52);
   assert.strictEqual(listing.mrt_station, '南港展覽館');
+  assert.strictEqual(listing.address, '南港區-經園街');
+  assert.strictEqual(listing.mrt_distance_m, 450);
   assert.strictEqual(listing.manual_notes, '已約房仲確認');
 }
 
@@ -223,6 +230,9 @@ function testResearchFieldsDoNotAffectNumericScore() {
   const researchedScore = scoreListing({
     ...listing,
     mrt_minutes: 1,
+    mrt_station: '民權西路',
+    mrt_distance_m: 517,
+    address: '中山區-中山北路二段',
     signage: '2面看板',
     pedestrian_flow: '人流多',
     zoning_permit: '不可變更',

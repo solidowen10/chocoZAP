@@ -654,6 +654,84 @@
     return extractDistrictFromTexts(lines, city);
   }
 
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function extractAddressFromText(value, city) {
+    const compact = compactText(value);
+    if (!compact) return null;
+
+    const district = districtPoolForCity(city).find((name) => compact.includes(name));
+    if (!district) return null;
+
+    const tail = compact.slice(compact.indexOf(district));
+    const pattern = new RegExp(
+      `^(${escapeRegExp(district)})[-－–—\\s]*` +
+        "(.{1,40}?(?:大道|路|街|巷|弄)(?:[一二三四五六七八九十\\d]+段)?(?:\\d+巷)?(?:\\d+弄)?(?:\\d+號)?)",
+    );
+    const match = tail.match(pattern);
+    if (!match) return null;
+
+    return `${match[1]}-${match[2]}`;
+  }
+
+  function extractAddressFromTexts(texts, city) {
+    const candidates = [];
+
+    for (const text of texts) {
+      candidates.push(
+        ...String(text || "")
+          .split(/\n+|[｜|]/)
+          .map((line) => normalizeWhitespace(line)),
+      );
+    }
+
+    for (const candidate of unique(candidates)) {
+      const address = extractAddressFromText(candidate, city);
+      if (address) return address;
+    }
+
+    return null;
+  }
+
+  function extractAddress(root, lines, city) {
+    return extractAddressFromTexts(collectAddressTexts(root, lines), city);
+  }
+
+  function parseMrtDistanceText(value) {
+    const text = normalizeWhitespace(value).replace(/\s+/g, " ");
+    if (!text || !/距(?:離)?/.test(text)) return null;
+
+    const match = text.match(
+      /距(?:離)?\s*(?:捷運)?\s*([\u4e00-\u9fffA-Za-z0-9/＋+・．.\-]{1,24}?)(?:站)?\s*(\d{1,5}(?:,\d{3})?)\s*(?:公尺|米|m)/i,
+    );
+    if (!match) return null;
+
+    const station = normalizeWhitespace(match[1])
+      .replace(/^捷運/, "")
+      .replace(/站$/, "");
+    const distance = Number.parseInt(match[2].replace(/,/g, ""), 10);
+
+    if (!station || !Number.isFinite(distance)) return null;
+    return {
+      mrt_station: station,
+      mrt_distance_m: distance,
+    };
+  }
+
+  function extractMrtEvidence(lines, allText) {
+    for (const text of [...lines, allText]) {
+      const evidence = parseMrtDistanceText(text);
+      if (evidence) return evidence;
+    }
+
+    return {
+      mrt_station: null,
+      mrt_distance_m: null,
+    };
+  }
+
   function normalizeRentNumber(value) {
     return Number.parseFloat(String(value || "").replace(/,/g, ""));
   }
@@ -922,6 +1000,7 @@
     const primaryAnchor = choosePrimaryAnchor(root, anchorInfo.id) || anchorInfo.anchor;
     const title = extractTitle(root, primaryAnchor, lines);
     const city = pageCity;
+    const mrtEvidence = extractMrtEvidence(lines, allText);
 
     return {
       source: "591",
@@ -930,10 +1009,13 @@
       title,
       city,
       district: extractDistrict(root, lines, city),
+      address: extractAddress(root, lines, city),
       rent_twd: extractRent(root, lines, allText),
       listed_area_ping: extractArea(lines, allText),
       floor_text: extractFloorText(lines, allText),
       property_type: extractPropertyType(lines),
+      mrt_station: mrtEvidence.mrt_station,
+      mrt_distance_m: mrtEvidence.mrt_distance_m,
       thumbnail_url: extractThumbnailUrl(root),
       scraped_at: scrapedAt,
     };
@@ -1054,13 +1136,34 @@
       ["新光山莊士林區-中庸一路", "士林區"],
       ["十方天母榕園北投區-明德路", "北投區"],
     ],
+    location_evidence: [
+      [
+        "中山區-中山北路二段 距民權西路 517公尺",
+        {
+          address: "中山區-中山北路二段",
+          mrt_station: "民權西路",
+          mrt_distance_m: 517,
+        },
+      ],
+      [
+        "南港區-經園街 距捷運南港展覽館站 1,050公尺",
+        {
+          address: "南港區-經園街",
+          mrt_station: "南港展覽館",
+          mrt_distance_m: 1050,
+        },
+      ],
+    ],
     listing_21778960: {
       href: "https://rent.591.com.tw/21778960",
-      text: "東方晶璽大樓南港區-經園街 降4000元 89,000元/月 整層住家4房2廳55坪1F/15F",
+      text: "東方晶璽大樓南港區-經園街 距南港展覽館 620公尺 降4000元 89,000元/月 整層住家4房2廳55坪1F/15F",
       expected: {
         source_listing_id: "21778960",
         url: "https://rent.591.com.tw/21778960",
         district: "南港區",
+        address: "南港區-經園街",
+        mrt_station: "南港展覽館",
+        mrt_distance_m: 620,
         rent_twd: 89000,
         listed_area_ping: 55,
         floor_text: "1F/15F",
@@ -1085,12 +1188,36 @@
       }
     }
 
+    for (const [input, expected] of PARSER_SELF_TEST_CASES.location_evidence) {
+      const actualMrt = parseMrtDistanceText(input);
+      const actual = {
+        address: extractAddressFromTexts([input], "台北市"),
+        mrt_station: actualMrt?.mrt_station || null,
+        mrt_distance_m: actualMrt?.mrt_distance_m || null,
+      };
+      for (const [key, expectedValue] of Object.entries(expected)) {
+        if (actual[key] !== expectedValue) {
+          failures.push({
+            parser: "location_evidence",
+            field: key,
+            input,
+            expected: expectedValue,
+            actual: actual[key],
+          });
+        }
+      }
+    }
+
     const fixture = PARSER_SELF_TEST_CASES.listing_21778960;
     const parsedHref = parseRentListingHref(fixture.href);
+    const fixtureMrt = parseMrtDistanceText(fixture.text);
     const fixtureActual = {
       source_listing_id: parsedHref?.id || null,
       url: parsedHref?.url || null,
       district: extractDistrictFromTexts([fixture.text], "台北市"),
+      address: extractAddressFromTexts([fixture.text], "台北市"),
+      mrt_station: fixtureMrt?.mrt_station || null,
+      mrt_distance_m: fixtureMrt?.mrt_distance_m || null,
       rent_twd: parseMonthlyRentText(fixture.text),
       listed_area_ping: parseAreaText(fixture.text),
       floor_text: extractFloorText([fixture.text], fixture.text),
@@ -1112,6 +1239,7 @@
       checked:
         PARSER_SELF_TEST_CASES.rent_twd.length +
         PARSER_SELF_TEST_CASES.taipei_district.length +
+        PARSER_SELF_TEST_CASES.location_evidence.length * 3 +
         Object.keys(PARSER_SELF_TEST_CASES.listing_21778960.expected).length,
       failures,
     };
