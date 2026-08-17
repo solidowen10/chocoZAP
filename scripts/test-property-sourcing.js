@@ -1,6 +1,7 @@
 const assert = require('assert');
 
 const {
+  classifyNearbyPlace,
   defaultScoringConfig,
   manualLocationToScoringListing,
   normalizeListing,
@@ -77,8 +78,42 @@ function testCrawlerReimportPreservesHumanFields() {
   assert.strictEqual(listing.mrt_station, '南港展覽館');
   assert.strictEqual(listing.address, '南港區-經園街');
   assert.strictEqual(listing.nearby_place, '後山埤');
+  assert.strictEqual(listing.nearby_place_type, 'mrt');
   assert.strictEqual(listing.nearby_distance_m, 450);
   assert.strictEqual(listing.manual_notes, '已約房仲確認');
+}
+
+function testNearbyPlaceClassifier() {
+  [
+    '南京復興',
+    '南京復興站',
+    '明德',
+    '明德站',
+    '象山',
+    '劍南路',
+    '石牌',
+    '昆陽',
+  ].forEach((place) => {
+    assert.strictEqual(classifyNearbyPlace(place), 'mrt');
+  });
+
+  [
+    '三姐姐早餐店',
+    '山仔后派出所',
+    '故宮博物院',
+    '中華地磅',
+    '振興醫院',
+    '天母公園',
+  ].forEach((place) => {
+    assert.strictEqual(classifyNearbyPlace(place), 'place');
+  });
+
+  assert.strictEqual(classifyNearbyPlace(''), null);
+  assert.strictEqual(classifyNearbyPlace(null), null);
+  assert.strictEqual(normalizeListing({ nearby_place: '三姐姐早餐店' }).nearby_place_type, 'place');
+  assert.strictEqual(normalizeListing({ nearby_place: '明德站' }).nearby_place_type, 'mrt');
+  assert.strictEqual(normalizeListing({}).nearby_place_type, null);
+  assert.strictEqual(scoreListings([{ nearby_place: '昆陽' }], defaultScoringConfig())[0].nearby_place_type, 'mrt');
 }
 
 function testListedAreaDrivesScoring() {
@@ -304,6 +339,7 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
 
 testUpsertPreventsDuplicates();
 testCrawlerReimportPreservesHumanFields();
+testNearbyPlaceClassifier();
 testListedAreaDrivesScoring();
 testScoringChangesWhenConfigChanges();
 testRecommendationThresholdWorks();

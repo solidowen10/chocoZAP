@@ -1120,6 +1120,10 @@ function ping(value) {
   return value == null ? "待確認" : `${value} 坪`;
 }
 
+function nearbyPlaceTypeLabel(value) {
+  return value === "mrt" ? "捷運站" : "一般地標";
+}
+
 function sourceId(x) {
   return `${encodeURIComponent(x.source)}:${encodeURIComponent(x.source_listing_id)}`;
 }
@@ -1305,7 +1309,7 @@ function renderAutomatedListings() {
           <div><small>人工可用坪數</small><strong>${x.usable_area_ping == null ? "待確認" : ping(x.usable_area_ping)}</strong></div>
           <div><small>樓層</small><strong>${escapeHtml(x.floor_text || "待確認")}</strong></div>
           <div><small>地址</small><strong>${escapeHtml(x.address || "待確認")}</strong></div>
-          <div><small>附近地點</small><strong>${escapeHtml(x.nearby_place || "待確認")}</strong></div>
+          <div><small>附近地點</small><strong>${escapeHtml(x.nearby_place || "待確認")}${x.nearby_place ? ` <span class="pill">${nearbyPlaceTypeLabel(x.nearby_place_type)}</span>` : ""}</strong></div>
           <div><small>距離（公尺）</small><strong>${x.nearby_distance_m == null ? "待確認" : escapeHtml(Number(x.nearby_distance_m).toLocaleString("zh-TW"))}</strong></div>
           <div><small>捷運</small><strong>${escapeHtml(x.mrt_station || "待確認")}${x.mrt_minutes == null ? "" : ` · ${escapeHtml(x.mrt_minutes)} 分`}</strong></div>
           <div><small>類型</small><strong>${escapeHtml(x.property_type || "待確認")}</strong></div>
