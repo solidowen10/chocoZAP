@@ -579,58 +579,108 @@ h1{font-size:34px;margin:8px 0 4px}
 .site-nav-row{
   display:flex;
   align-items:center;
-  padding:0 32px;
+  gap:18px;
+  padding:10px 32px;
   border-top:1px solid #26272B;
+  background:#161719;
 }
 
 .site-nav-row .source-nav{
   display:flex;
-  gap:26px;
+  gap:4px;
   margin:0;
+  padding:4px;
+  background:#0D0E10;
+  border:1px solid #2B2C30;
+  border-radius:12px;
 }
 
 .site-nav-row .source-tab{
   position:relative;
-  padding:14px 2px 13px;
-  background:none;
-  border:none;
-  color:#8D8D89;
-  font-size:14px;
-  font-weight:600;
+  padding:9px 16px;
+  min-height:36px;
+  background:transparent;
+  border:1px solid transparent;
+  color:#A7A7A3;
+  font-size:13px;
+  font-weight:750;
   cursor:pointer;
-  border-radius:0;
+  border-radius:8px;
+  transition:.15s ease;
+}
+
+.site-nav-row .source-tab:hover{
+  border-color:#3A3B40;
+  color:#F6F6F3;
+  background:#25262A;
+  transform:translateY(-1px);
 }
 
 .site-nav-row .source-tab.active{
-  color:#F6F6F3;
-  background:none;
+  color:#101113;
+  background:#fddf00;
+  border-color:#fddf00;
 }
 
 .site-nav-row .source-tab.active::after{
-  content:"";
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:-1px;
-  height:2px;
-  background:#fddf00;
-  border-radius:2px;
+  display:none;
 }
 
 .site-connection{
   margin-left:auto;
   display:flex;
   align-items:center;
-  gap:8px;
-  font-size:11.5px;
-  color:#6C6C68;
+  gap:10px;
+  color:#8D8D89;
 }
 
-.site-connection span{
-  width:6px;
-  height:6px;
+.site-connection .connection-dot{
+  width:7px;
+  height:7px;
   border-radius:50%;
   background:#fddf00;
+  flex:none;
+}
+
+.connection-info{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  white-space:nowrap;
+}
+
+.connection-info strong{
+  color:#A7A7A3;
+  font-size:11.5px;
+  font-weight:600;
+}
+
+.connection-info small{
+  color:#6C6C68;
+  font-size:11px;
+}
+
+.site-connection .header-sync-btn{
+  border:1px solid #3A3B3E;
+  border-radius:8px;
+  background:transparent;
+  color:#F6F6F3;
+  padding:7px 11px;
+  font-size:11.5px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:.15s ease;
+}
+
+.site-connection .header-sync-btn:hover{
+  border-color:#fddf00;
+  color:#fddf00;
+}
+
+.site-connection .header-sync-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 @media(max-width:760px){
@@ -651,8 +701,45 @@ h1{font-size:34px;margin:8px 0 4px}
     padding:0 20px;
   }
 
+  .site-nav-row{
+    flex-wrap:wrap;
+    gap:8px;
+    padding:10px 14px;
+  }
+
+  .site-nav-row .source-nav{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:4px;
+  }
+
+  .site-nav-row .source-tab{
+    width:100%;
+    padding:10px 6px;
+    font-size:12px;
+    text-align:center;
+  }
+
   .site-connection{
-    display:none;
+    display:flex;
+    width:100%;
+    margin:0;
+    padding:10px 0 12px;
+    border-top:1px solid #26272B;
+  }
+
+  .connection-info{
+    flex:1;
+    min-width:0;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:2px;
+    white-space:normal;
+  }
+
+  .site-connection .header-sync-btn{
+    margin-left:auto;
   }
 }
 
@@ -716,6 +803,408 @@ h1{font-size:34px;margin:8px 0 4px}
   }
 }
 
+
+.control-panel{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:22px;
+  margin-bottom:24px;
+}
+
+.control-panel .tabs{
+  margin-top:0;
+}
+
+.control-panel .summary{
+  margin-bottom:0;
+}
+
+
+/* Unified header + control panel card */
+.site-header-panel{
+  margin-bottom:0;
+  border-radius:20px 20px 0 0;
+  box-shadow:none;
+}
+
+#manualView .control-panel,
+#automatedView .control-panel{
+  margin-top:0;
+  border-top:0;
+  border-radius:0 0 20px 20px;
+  box-shadow:0 18px 40px -28px rgba(16,17,19,.35);
+}
+
+#manualView,
+#automatedView{
+  margin-top:0;
+}
+
+
+/* Mobile final layout */
+@media(max-width:760px){
+
+  .wrap{
+    padding:14px 12px 48px;
+  }
+
+  /* Header identity */
+  .site-identity{
+    flex-wrap:nowrap;
+    align-items:center;
+    gap:14px;
+    padding:18px 16px;
+  }
+
+  .site-mark{
+    width:72px;
+    flex:none;
+  }
+
+  .site-title-block{
+    min-width:0;
+  }
+
+  .site-eyebrow{
+    font-size:9px;
+    letter-spacing:.10em;
+    gap:5px;
+    margin-bottom:5px;
+  }
+
+  .site-title-block h1{
+    font-size:20px;
+    line-height:1.2;
+  }
+
+  .site-title-block h1 small{
+    display:block;
+    margin:5px 0 0;
+    font-size:11px;
+  }
+
+  /* Main navigation */
+  .site-nav-row{
+    flex-wrap:wrap;
+    gap:0;
+    padding:10px 12px 0;
+  }
+
+  .site-nav-row .source-nav{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px;
+    padding:0 0 10px;
+  }
+
+  .site-nav-row .source-tab{
+    width:100%;
+    min-width:0;
+    padding:10px 4px;
+    font-size:12px;
+    text-align:center;
+  }
+
+  /* Connection + sync */
+  .site-connection{
+    display:flex;
+    width:100%;
+    margin:0;
+    padding:10px 2px 12px;
+    gap:8px;
+    border-top:1px solid #26272B;
+  }
+
+  .connection-info{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:2px;
+    white-space:normal;
+  }
+
+  .connection-info strong{
+    font-size:11px;
+  }
+
+  .connection-info small{
+    font-size:10px;
+    line-height:1.35;
+  }
+
+  .site-connection .header-sync-btn{
+    flex:none;
+    margin-left:auto;
+    padding:8px 12px;
+  }
+
+  /* White dashboard area */
+  .control-panel{
+    padding:16px 14px 18px;
+  }
+
+  /* City tabs scroll horizontally instead of wrapping forever */
+  .control-panel .tabs{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:7px;
+    overflow-x:auto;
+    margin:0 0 18px;
+    padding:0 0 4px;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .control-panel .tabs::-webkit-scrollbar{
+    display:none;
+  }
+
+  .control-panel .tab{
+    flex:0 0 auto;
+    padding:9px 15px;
+  }
+
+  /* Filters */
+  .control-panel .toolbar{
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-bottom:16px;
+  }
+
+  /* Summary */
+  .control-panel .summary{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+
+  .control-panel .stat{
+    min-width:0;
+    padding:14px;
+    border-radius:14px;
+  }
+
+  .control-panel .stat b{
+    font-size:23px;
+  }
+
+  /* Listings */
+  .grid{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .card{
+    padding:17px;
+    border-radius:16px;
+  }
+
+  .listing-card{
+    grid-template-columns:1fr;
+  }
+
+  .listing-thumb{
+    width:100%;
+  }
+
+  .meta,
+  .auto-meta{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  /* Keep joined header/control card */
+  .site-header-panel{
+    border-radius:18px 18px 0 0;
+  }
+
+  #manualView .control-panel,
+  #automatedView .control-panel{
+    border-radius:0 0 18px 18px;
+    margin-bottom:18px;
+  }
+}
+
+
+/* Mobile sticky header + full-width joined dashboard */
+@media(max-width:760px){
+
+  /* Let the joined black/white dashboard use the full mobile width */
+  .wrap{
+    padding-left:0;
+    padding-right:0;
+    padding-top:14px;
+  }
+
+  /* Sticky black header */
+  .site-header-panel{
+    position:sticky;
+    top:0;
+    z-index:100;
+    width:100%;
+    border-left:0;
+    border-right:0;
+    border-radius:0;
+    overflow:visible;
+    box-shadow:0 8px 20px rgba(16,17,19,.12);
+  }
+
+  /* White controls exactly follow black header width */
+  #manualView,
+  #automatedView{
+    width:100%;
+    margin:0;
+  }
+
+  #manualView .control-panel,
+  #automatedView .control-panel{
+    width:100%;
+    margin-left:0;
+    margin-right:0;
+    border-left:0;
+    border-right:0;
+    border-radius:0 0 18px 18px;
+  }
+
+  /* Listings still keep comfortable mobile side spacing */
+  #manualView > .grid,
+  #automatedView > .grid,
+  #manualView > .footer-note{
+    margin-left:12px;
+    margin-right:12px;
+  }
+}
+
+
+/* Mobile control panel final polish */
+@media(max-width:760px){
+
+  /* Remove the white strip above the black header */
+  .wrap{
+    padding-top:0;
+  }
+
+  /* Keep black header exactly as current design */
+  .site-header-panel{
+    top:0;
+  }
+
+  /*
+   * City selector:
+   * show all regions instead of horizontal scrolling.
+   */
+  .control-panel .tabs{
+    display:flex;
+    flex-wrap:wrap;
+    overflow:visible;
+    gap:7px;
+    margin:0 0 18px;
+    padding:0;
+  }
+
+  .control-panel .tab{
+    flex:0 0 auto;
+    padding:9px 15px;
+  }
+
+  /* Prevent accidental horizontal page scrolling */
+  html,
+  body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+  }
+
+  /* Make the white control area truly fill the viewport */
+  #manualView,
+  #automatedView,
+  #manualView .control-panel,
+  #automatedView .control-panel{
+    width:100%;
+    max-width:100%;
+  }
+}
+
+
+/* Tighten main source navigation */
+@media(max-width:760px){
+  .site-nav-row{
+    padding-bottom:0;
+  }
+
+  .site-nav-row .source-nav{
+    margin:0;
+    padding:0;
+    align-items:stretch;
+  }
+
+  .site-nav-row .source-tab{
+    margin:0;
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+}
+
+
+/* Mobile sticky header final */
+@media(max-width:760px){
+
+  html,
+  body{
+    overflow-x:clip;
+  }
+
+  .wrap{
+    overflow:visible;
+  }
+
+  .site-header-panel{
+    position:-webkit-sticky;
+    position:sticky;
+    top:0;
+    z-index:1000;
+  }
+}
+
+
+/* Mobile region reveal while scrolling upward */
+@media(max-width:760px){
+
+  .control-panel .tabs{
+    transition:
+      transform .22s ease,
+      opacity .18s ease,
+      box-shadow .18s ease;
+  }
+
+  body.region-scroll-mode .control-panel .tabs{
+    position:fixed;
+    top:var(--mobile-header-height, 0px);
+    left:0;
+    right:0;
+    z-index:900;
+
+    margin:0;
+    padding:10px 14px;
+
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    box-shadow:0 8px 20px rgba(16,17,19,.08);
+
+    transform:translateY(-110%);
+    opacity:0;
+    pointer-events:none;
+  }
+
+  body.region-scroll-mode.region-tabs-visible .control-panel .tabs{
+    transform:translateY(0);
+    opacity:1;
+    pointer-events:auto;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -736,17 +1225,6 @@ h1{font-size:34px;margin:8px 0 4px}
         </h1>
       </div>
 
-      <div class="site-actions" id="headerSyncActions">
-        <div class="site-sync-meta" id="headerSyncMeta">
-          人工蒐集資料載入中...
-        </div>
-        <button
-          class="header-sync-btn"
-          id="headerSyncBtn"
-          onclick="syncCurrentSource()">
-          同步 Google Sheet
-        </button>
-      </div>
     </div>
 
     <div class="site-nav-row">
@@ -756,9 +1234,20 @@ h1{font-size:34px;margin:8px 0 4px}
         <button class="source-tab" data-source-view="rules">評分規則</button>
       </div>
 
-      <div class="site-connection">
-        <span></span>
-        資料來源已連線
+      <div class="site-connection" id="headerSyncActions">
+        <span class="connection-dot"></span>
+
+        <div class="connection-info">
+          <strong id="headerConnectionStatus">資料來源已連線</strong>
+          <small id="headerSyncMeta">最後同步：載入中...</small>
+        </div>
+
+        <button
+          class="header-sync-btn"
+          id="headerSyncBtn"
+          onclick="syncCurrentSource()">
+          同步
+        </button>
       </div>
     </div>
   </div>
@@ -769,19 +1258,23 @@ h1{font-size:34px;margin:8px 0 4px}
       <button class="sync-btn" id="manualSyncBtn" onclick="syncManualSheet()">同步 Google Sheet</button>
     </div>
 
-    <div class="tabs" id="manualRegionTabs">
-      <button class="tab active" data-region="全部">全部</button>
-      <button class="tab" data-region="台北">台北</button>
-      <button class="tab" data-region="新北">新北</button>
-    </div>
+    <div class="control-panel">
 
-    <div class="toolbar" id="manualFilters"></div>
+      <div class="tabs" id="manualRegionTabs">
+        <button class="tab active" data-region="全部">全部</button>
+        <button class="tab" data-region="台北">台北</button>
+        <button class="tab" data-region="新北">新北</button>
+      </div>
 
-    <div class="summary">
-      <div class="stat queue-stat manual-queue-stat" data-manual-status=""><b id="countAll">0</b><span>全部</span></div>
-      <div class="stat queue-stat manual-queue-stat" data-manual-status="high"><b id="countHigh">0</b><span>高分物件</span></div>
-      <div class="stat queue-stat manual-queue-stat" data-manual-status="missing"><b id="countCheck">0</b><span>待補資料</span></div>
-      <div class="stat queue-stat manual-queue-stat" data-manual-status="rejected"><b id="countReject">0</b><span>已淘汰</span></div>
+      <div class="toolbar" id="manualFilters"></div>
+
+      <div class="summary">
+        <div class="stat queue-stat manual-queue-stat" data-manual-status=""><b id="countAll">0</b><span>全部</span></div>
+        <div class="stat queue-stat manual-queue-stat" data-manual-status="high"><b id="countHigh">0</b><span>高分物件</span></div>
+        <div class="stat queue-stat manual-queue-stat" data-manual-status="missing"><b id="countCheck">0</b><span>待補資料</span></div>
+        <div class="stat queue-stat manual-queue-stat" data-manual-status="rejected"><b id="countReject">0</b><span>已淘汰</span></div>
+      </div>
+
     </div>
 
     <div id="grid" class="grid"></div>
@@ -798,15 +1291,22 @@ h1{font-size:34px;margin:8px 0 4px}
       <span>自動蒐集資料載入中...</span>
       <button class="sync-btn" id="autoSyncBtn" onclick="syncPropertySheet()">同步 Google Sheet</button>
     </div>
-    <div class="tabs" id="autoRegionTabs"></div>
-    <div class="toolbar" id="autoFilters"></div>
-    <div class="summary">
-      <div class="stat queue-stat auto-queue-stat" data-auto-status=""><b id="autoCountAll">0</b><span>全部</span></div>
-      <div class="stat queue-stat auto-queue-stat" data-auto-status="new"><b id="autoCountNew">0</b><span>新物件</span></div>
-      <div class="stat queue-stat auto-queue-stat" data-auto-status="reviewing"><b id="autoCountReviewing">0</b><span>審查中</span></div>
-      <div class="stat queue-stat auto-queue-stat" data-auto-status="shortlisted"><b id="autoCountShortlisted">0</b><span>候選物件</span></div>
-      <div class="stat queue-stat auto-queue-stat" data-auto-status="rejected"><b id="autoCountRejected">0</b><span>已淘汰</span></div>
+    <div class="control-panel">
+
+      <div class="tabs" id="autoRegionTabs"></div>
+
+      <div class="toolbar" id="autoFilters"></div>
+
+      <div class="summary">
+        <div class="stat queue-stat auto-queue-stat" data-auto-status=""><b id="autoCountAll">0</b><span>全部</span></div>
+        <div class="stat queue-stat auto-queue-stat" data-auto-status="new"><b id="autoCountNew">0</b><span>新物件</span></div>
+        <div class="stat queue-stat auto-queue-stat" data-auto-status="reviewing"><b id="autoCountReviewing">0</b><span>審查中</span></div>
+        <div class="stat queue-stat auto-queue-stat" data-auto-status="shortlisted"><b id="autoCountShortlisted">0</b><span>候選物件</span></div>
+        <div class="stat queue-stat auto-queue-stat" data-auto-status="rejected"><b id="autoCountRejected">0</b><span>已淘汰</span></div>
+      </div>
+
     </div>
+
     <div id="autoGrid" class="grid"></div>
   </section>
 
@@ -1091,10 +1591,11 @@ function formatDate(value) {
 
 function updateHeaderSyncUI() {
   const actions = document.getElementById("headerSyncActions");
+  const status = document.getElementById("headerConnectionStatus");
   const meta = document.getElementById("headerSyncMeta");
   const btn = document.getElementById("headerSyncBtn");
 
-  if (!actions || !meta || !btn) return;
+  if (!actions || !status || !meta || !btn) return;
 
   if (sourceView === "rules") {
     actions.style.display = "none";
@@ -1109,21 +1610,30 @@ function updateHeaderSyncUI() {
       : "manualUpdatedInfo";
 
   const sourceText =
-    document.querySelector(`#${sourceId} span`)?.textContent ||
-    (sourceView === "automated"
-      ? "自動蒐集資料載入中..."
-      : "人工蒐集資料載入中...");
+    document.querySelector(`#${sourceId} span`)?.textContent || "";
 
-  meta.textContent = sourceText;
-  btn.textContent = "同步 Google Sheet";
+  status.textContent = "資料來源已連線";
+
+  const match = sourceText.match(
+    /(?:最後同步|最後更新)[：:]\s*([^｜]+)/
+  );
+
+  meta.textContent = match
+    ? `最後同步：${match[1].trim()}`
+    : "最後同步：—";
+
+  btn.textContent = "同步";
   btn.disabled = false;
 }
-
 async function syncCurrentSource() {
+  const status = document.getElementById("headerConnectionStatus");
+  const meta = document.getElementById("headerSyncMeta");
   const btn = document.getElementById("headerSyncBtn");
 
   if (sourceView === "rules") return;
 
+  if (status) status.textContent = "正在同步";
+  if (meta) meta.textContent = "正在取得 Google Sheet 資料...";
   if (btn) {
     btn.disabled = true;
     btn.textContent = "同步中...";
@@ -1138,28 +1648,39 @@ async function syncCurrentSource() {
 
     updateHeaderSyncUI();
 
-    if (btn) {
-      btn.textContent = "同步完成";
-      setTimeout(() => {
-        updateHeaderSyncUI();
-      }, 2000);
-    }
   } catch (err) {
+    if (status) status.textContent = "同步失敗";
+    if (meta) meta.textContent = err.message || "無法同步 Google Sheet";
+
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "同步失敗";
+      btn.textContent = "重試";
     }
-    throw err;
+
+    console.error(err);
   }
 }
-
 function wireSourceTabs() {
   document.querySelectorAll(".source-tab").forEach(btn => {
     btn.addEventListener("click", () => {
       sourceView = btn.dataset.sourceView;
+
       document.querySelectorAll(".source-tab")
         .forEach(x => x.classList.toggle("active", x === btn));
+
       renderSourceView();
+
+      document.body.classList.remove(
+        "region-scroll-mode",
+        "region-tabs-visible"
+      );
+
+      // Each source view starts from the top.
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto"
+      });
     });
   });
 }
@@ -1914,6 +2435,87 @@ async function resetScoringRules() {
 wireSourceTabs();
 wireQueueCards();
 loadLocations();
+
+
+// Mobile: reveal region selector when scrolling upward.
+(function setupMobileRegionReveal() {
+  let lastScrollY = window.scrollY;
+  let ticking = false;
+
+  function updateHeaderHeight() {
+    const header = document.querySelector(".site-header-panel");
+    if (!header) return;
+
+    document.documentElement.style.setProperty(
+      "--mobile-header-height",
+      `${header.offsetHeight}px`
+    );
+  }
+
+  function updateRegionTabs() {
+    ticking = false;
+
+    if (window.innerWidth > 760) {
+      document.body.classList.remove(
+        "region-scroll-mode",
+        "region-tabs-visible"
+      );
+      lastScrollY = window.scrollY;
+      return;
+    }
+
+    const currentY = window.scrollY;
+    const header = document.querySelector(".site-header-panel");
+    const headerHeight = header ? header.offsetHeight : 0;
+
+    // Near the top: use the normal region selector.
+    if (currentY <= headerHeight + 40) {
+      document.body.classList.remove(
+        "region-scroll-mode",
+        "region-tabs-visible"
+      );
+
+      lastScrollY = currentY;
+      return;
+    }
+
+    document.body.classList.add("region-scroll-mode");
+
+    const delta = currentY - lastScrollY;
+
+    // Ignore tiny Safari scroll movements.
+    if (Math.abs(delta) < 4) {
+      return;
+    }
+
+    if (delta < 0) {
+      // Scrolling upward -> reveal regions.
+      document.body.classList.add("region-tabs-visible");
+    } else {
+      // Scrolling downward -> hide regions.
+      document.body.classList.remove("region-tabs-visible");
+    }
+
+    lastScrollY = currentY;
+  }
+
+  window.addEventListener("scroll", () => {
+    if (!ticking) {
+      window.requestAnimationFrame(updateRegionTabs);
+      ticking = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener("resize", () => {
+    updateHeaderHeight();
+    updateRegionTabs();
+  });
+
+  window.addEventListener("load", updateHeaderHeight);
+
+  updateHeaderHeight();
+})();
+
 </script>
 </body>
 </html>
