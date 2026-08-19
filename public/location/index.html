@@ -1836,6 +1836,7 @@ function renderManualContent(){
             <b>AI 評分：${x.aiScore} / 10</b>
             <small>評分者：${x.aiReviewer}</small>
           </div>
+          ${renderScoringBreakdown(x.breakdown)}
 	  
 	  ${x.officialScore != null ? `
   <div class="scorebox">
@@ -1944,6 +1945,23 @@ function ping(value) {
 
 function nearbyPlaceTypeLabel(value) {
   return value === "mrt" ? "捷運站" : "一般地標";
+}
+
+function renderScoringBreakdown(breakdown = []) {
+  const items = new Map((breakdown || []).map(item => [item.key, item]));
+  const rows = [
+    ["mrt_distance", "捷運"],
+    ["rent_per_ping", "每坪月租"],
+    ["area", "坪數"]
+  ].map(([key, label]) => {
+    const item = items.get(key) || {};
+    const reason = item.reason || "待確認";
+    const points = item.points == null ? 0 : item.points;
+    const max = item.max == null ? "—" : item.max;
+    return `${escapeHtml(label)} | ${escapeHtml(reason)} | ${escapeHtml(points)}/${escapeHtml(max)}`;
+  }).join("<br>");
+
+  return `<div class="scorebox"><b>評分明細</b><small>${rows}</small></div>`;
 }
 
 function sourceId(x) {
@@ -2159,6 +2177,7 @@ function renderAutomatedListings() {
           <div><small>狀態</small><strong>${statusLabelAuto(x.status)}</strong></div>
         </div>
         <div class="review-line">
+          ${renderScoringBreakdown(x.breakdown)}
           <div class="scorebox"><b>主要風險</b><small>${escapeHtml((x.risks || []).join("；") || "目前未發現明確風險")}</small></div>
           <div class="scorebox"><b>缺資料</b><small>${escapeHtml((x.missing_data || []).join("、") || "目前無重大缺資料")}</small></div>
           <div class="scorebox"><b>下一步</b><small>${escapeHtml(x.next_step || "補齊資料後評估")}</small></div>
