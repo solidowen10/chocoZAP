@@ -12,6 +12,7 @@
 
   const DEBUG_PREFIX = "[591-radar]";
   const RENT_HOST = "rent.591.com.tw";
+  const BUSINESS_HOST = "business.591.com.tw";
 
   const CITY_NAMES = [
     "台北市",
@@ -221,6 +222,18 @@
     ],
   };
 
+  const BUSINESS_TYPES = [
+    "商業街店面",
+    "路邊/臨街門面",
+    "社區底商",
+    "店辦",
+    "辦公",
+    "店面",
+    "商辦",
+    "辦公室",
+    "廠辦",
+  ];
+
   const PROPERTY_TYPES = [
     "整層住家",
     "獨立套房",
@@ -257,6 +270,7 @@
   ].join(",");
 
   const CARD_ROOT_HINT_SELECTOR = [
+    ".recommend-ware",
     "[data-houseid]",
     "[houseid]",
     "[data-house-id]",
@@ -272,6 +286,7 @@
   ].join(",");
 
   const TITLE_SELECTORS = [
+    ".title",
     ".item-info-title",
     "[class*=\"item-title\" i]",
     "[class*=\"house-title\" i]",
@@ -371,6 +386,10 @@
     return hostname === RENT_HOST;
   }
 
+  function isBusinessHost(hostname) {
+    return hostname === BUSINESS_HOST;
+  }
+
   function parseRentListingHref(href) {
     const absoluteUrl = toAbsoluteUrl(href);
     if (!absoluteUrl) return null;
@@ -393,6 +412,39 @@
     };
   }
 
+  function parseBusinessListingHref(href) {
+    const absoluteUrl = toAbsoluteUrl(href);
+    if (!absoluteUrl) return null;
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(absoluteUrl);
+    } catch (error) {
+      return null;
+    }
+
+    if (!isBusinessHost(parsedUrl.hostname)) return null;
+
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+
+    if (
+      pathParts.length !== 2 ||
+      pathParts[0] !== "rent" ||
+      !/^\d{5,}$/.test(pathParts[1])
+    ) {
+      return null;
+    }
+
+    return {
+      id: pathParts[1],
+      url: parsedUrl.href,
+    };
+  }
+
+  function parse591ListingHref(href) {
+    return parseRentListingHref(href) || parseBusinessListingHref(href);
+  }
+
   function closestNonListingContext(element) {
     return element.closest(NON_LISTING_CONTEXT_SELECTOR);
   }
@@ -408,7 +460,7 @@
     ];
 
     return anchors
-      .map((anchor) => ({ anchor, listing: parseRentListingHref(anchor.getAttribute("href")) }))
+      .map((anchor) => ({ anchor, listing: parse591ListingHref(anchor.getAttribute("href")) }))
       .filter((item) => item.listing && !closestNonListingContext(item.anchor));
   }
 
@@ -426,7 +478,7 @@
       const absoluteUrl = toAbsoluteUrl(href);
       if (!absoluteUrl || !/591\.com\.tw/i.test(absoluteUrl)) continue;
 
-      const listing = parseRentListingHref(href);
+      const listing = parse591ListingHref(href);
       const excludedContext = closestNonListingContext(anchor);
 
       if (!listing || excludedContext) {
@@ -442,7 +494,7 @@
 
   function rootClassLooksUseful(element) {
     const className = classNameOf(element);
-    return /(vue-list-rent-item|rent-list-item|house-list-item|list-item|rent-item|house-item|item|card)/i.test(
+    return /(recommend-ware|vue-list-rent-item|rent-list-item|house-list-item|list-item|rent-item|house-item|item|card)/i.test(
       className,
     );
   }
@@ -562,6 +614,17 @@
   function extractTitle(root, primaryAnchor, lines) {
     const candidates = [];
 
+    const isBusinessCard =
+      root.classList.contains("recommend-ware") ||
+      root.querySelector("a[href*='business.591.com.tw/rent/']");
+
+    if (isBusinessCard) {
+      const businessTitle = root.querySelector("a.title")?.innerText?.trim();
+      if (businessTitle) {
+        return businessTitle;
+      }
+    }
+
     for (const selector of TITLE_SELECTORS) {
       const elements = Array.from(root.querySelectorAll(selector)).slice(0, 12);
       for (const element of elements) {
@@ -579,6 +642,14 @@
       .sort((a, b) => b.score - a.score || b.value.length - a.value.length);
 
     return scored[0]?.value || null;
+  }
+
+  function extractBusinessType(root) {
+    const text = getElementText(root);
+
+    return BUSINESS_TYPES.find(type =>
+      text.includes(type)
+    ) || null;
   }
 
   function extractPageCity() {
@@ -1007,6 +1078,7 @@
       source_listing_id: anchorInfo.id,
       url: anchorInfo.url,
       title,
+      business_type: extractBusinessType(root),
       city,
       district: extractDistrict(root, lines, city),
       address: extractAddress(root, lines, city),
@@ -1051,7 +1123,7 @@
     }
 
     console.groupCollapsed(
-      `${DEBUG_PREFIX} scan found ${candidateAnchors.length} legal rent anchor(s), ${byId.size} unique listing id(s)`,
+      `${DEBUG_PREFIX} scan found ${candidateAnchors.length} legal 591 anchor(s), ${byId.size} unique listing id(s)`,
     );
 
     for (const [listingId, anchorInfos] of byId.entries()) {
@@ -1073,10 +1145,12 @@
       }
 
       const parsed = parseListing(root, anchorInfo, scrapedAt, pageCity);
+      const parsedHostname = new URL(parsed.url).hostname;
+
       const isValid =
         Boolean(parsed.source_listing_id) &&
         Boolean(parsed.url) &&
-        new URL(parsed.url).hostname === RENT_HOST;
+        (isRentHost(parsedHostname) || isBusinessHost(parsedHostname));
 
       const debugEntry = {
         source_listing_id: listingId,
@@ -1162,6 +1236,10 @@
         },
       ],
     ],
+    business_listing_href: {
+      href: "https://business.591.com.tw/rent/21768020",
+      expected_id: "21768020",
+    },
     listing_21778960: {
       href: "https://rent.591.com.tw/21778960",
       text: "東方晶璽大樓南港區-經園街 距南港展覽館 620公尺 降4000元 89,000元/月 整層住家4房2廳55坪1F/15F",
@@ -1214,6 +1292,18 @@
           });
         }
       }
+    }
+
+    const businessFixture = PARSER_SELF_TEST_CASES.business_listing_href;
+    const parsedBusinessHref = parseBusinessListingHref(businessFixture.href);
+
+    if (parsedBusinessHref?.id !== businessFixture.expected_id) {
+      failures.push({
+        parser: "business_listing_href",
+        input: businessFixture.href,
+        expected: businessFixture.expected_id,
+        actual: parsedBusinessHref?.id || null,
+      });
     }
 
     const fixture = PARSER_SELF_TEST_CASES.listing_21778960;

@@ -89,7 +89,7 @@ function injectContentScript(tabId) {
 }
 
 function isSupported591Url(url) {
-  return /^https?:\/\/rent\.591\.com\.tw\//i.test(url || "");
+  return /^https?:\/\/(?:rent|business)\.591\.com\.tw\//i.test(url || "");
 }
 
 async function scanCurrentPage() {
@@ -105,7 +105,7 @@ async function scanCurrentPage() {
     }
 
     if (!isSupported591Url(tab.url)) {
-      throw new Error("Please open a rent.591.com.tw search results page first.");
+      throw new Error("Please open a supported 591 search results page first.");
     }
 
     let response;

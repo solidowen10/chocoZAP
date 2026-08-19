@@ -7,6 +7,7 @@ const {
   filterListingsByCurrentSheetIds,
   listingIdentities,
   listingIdentity,
+  listingFromSheetRow,
   manualLocationToScoringListing,
   normalizeListing,
   scoreManualLocation,
@@ -62,6 +63,55 @@ function testUpsertPreventsDuplicates() {
   assert.strictEqual(second.listings[0].title, '東方晶璽大樓更新');
   assert.strictEqual(second.listings[0].first_seen_at, now);
   assert.strictEqual(second.listings[0].last_seen_at, '2026-08-15T00:00:00.000Z');
+}
+
+
+function testBusinessTypePipeline() {
+  const normalized = normalizeListing({
+    source: '591',
+    source_listing_id: '999001',
+    url: 'https://business.591.com.tw/rent/999001',
+    title: '測試店面',
+    business_type: '商業街店面',
+  });
+
+  assert.strictEqual(normalized.business_type, '商業街店面');
+
+  const sheetEnglish = listingFromSheetRow({
+    source: '591',
+    source_listing_id: '999002',
+    url: 'https://business.591.com.tw/rent/999002',
+    business_type: '路邊/臨街門面',
+  });
+
+  assert.strictEqual(sheetEnglish.business_type, '路邊/臨街門面');
+
+  const sheetChinese = listingFromSheetRow({
+    source: '591',
+    source_listing_id: '999003',
+    url: 'https://business.591.com.tw/rent/999003',
+    '商用類型': '社區底商',
+  });
+
+  assert.strictEqual(sheetChinese.business_type, '社區底商');
+
+  const existing = [{
+    source: '591',
+    source_listing_id: '999004',
+    url: 'https://business.591.com.tw/rent/999004',
+    business_type: '店面',
+    status: 'reviewing',
+  }];
+
+  const result = upsertListings(existing, [{
+    source: '591',
+    source_listing_id: '999004',
+    url: 'https://business.591.com.tw/rent/999004',
+    business_type: '商業街店面',
+  }], { now: '2026-08-18T00:00:00.000Z' });
+
+  assert.strictEqual(result.listings[0].business_type, '商業街店面');
+  assert.strictEqual(result.listings[0].status, 'reviewing');
 }
 
 function testCrawlerReimportPreservesHumanFields() {
@@ -442,6 +492,7 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
 }
 
 testUpsertPreventsDuplicates();
+testBusinessTypePipeline();
 testCrawlerReimportPreservesHumanFields();
 testCurrentSheetMembershipFiltersListingsWithoutDeletingHistory();
 testNearbyPlaceClassifier();
