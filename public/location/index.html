@@ -1961,14 +1961,25 @@ function nearbyPlaceName(x = {}) {
   return x.nearby_place_type === "mrt" && !/站$/.test(place) ? `${place}站` : place;
 }
 
-function renderScoringBreakdown(breakdown = []) {
-  const items = new Map((breakdown || []).map(item => [item.key, item]));
+function scoringItem(listing = {}, key) {
+  const breakdown = Array.isArray(listing) ? listing : listing.breakdown;
+  return (Array.isArray(breakdown) ? breakdown : []).find(item => item && item.key === key) || null;
+}
+
+function rentPerPingDisplay(listing = {}) {
+  const item = scoringItem(listing, "rent_per_ping");
+  const reason = String(item && item.reason ? item.reason : "").trim();
+  if (!reason || reason === "待確認") return "待確認";
+  return reason.split("，")[0].replace(/\s*\/\s*/g, " / ");
+}
+
+function renderScoringBreakdown(listing = {}) {
   const rows = [
     ["mrt_distance", "捷運距離", 4],
     ["rent_per_ping", "每坪月租", 3],
     ["area", "坪數", 3]
   ].map(([key, label, fallbackMax]) => {
-    const item = items.get(key) || {};
+    const item = scoringItem(listing, key) || {};
     const reason = item.reason || "待確認";
     const points = item.points == null ? 0 : item.points;
     const max = item.max == null ? fallbackMax : item.max;
@@ -2180,6 +2191,7 @@ function renderAutomatedListings() {
         <div class="auto-meta">
           <div><small>租金</small><strong>${twd(x.rent_twd)}</strong></div>
           <div><small>總坪數</small><strong>${ping(x.listed_area_ping)}</strong></div>
+          <div><small>每坪月租</small><strong>${escapeHtml(rentPerPingDisplay(x))}</strong></div>
           <div><small>樓層</small><strong>${escapeHtml(x.floor_text || "待確認")}</strong></div>
           <div><small>地址</small><strong>${escapeHtml(x.address || "待確認")}</strong></div>
           <div><small>${nearbyPlaceLabel(x)}</small><strong>${escapeHtml(nearbyPlaceName(x))}${x.nearby_place && x.nearby_place_type !== "mrt" ? ` <span class="pill">${nearbyPlaceTypeLabel(x.nearby_place_type)}</span>` : ""}</strong></div>
@@ -2188,7 +2200,7 @@ function renderAutomatedListings() {
           <div><small>狀態</small><strong>${statusLabelAuto(x.status)}</strong></div>
         </div>
         <div class="review-line">
-          ${renderScoringBreakdown(x.breakdown)}
+          ${renderScoringBreakdown(x)}
         </div>
         <div class="card-actions">
           <a class="small-btn" href="${escapeHtml(x.url)}" target="_blank" rel="noopener noreferrer">查看 591</a>
@@ -2634,10 +2646,7 @@ async function saveScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", readScoringRulesForm());
     scoringConfig = data.scoringConfig;
-    await Promise.all([
-      loadLocations(),
-      loadAutomatedListings()
-    ]);
+    await loadLocations();
     renderScoringRules();
     renderSourceView();
     alert("評分規則已儲存，人工與自動物件已重新計算");
@@ -2651,10 +2660,7 @@ async function resetScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", { reset: true });
     scoringConfig = data.scoringConfig;
-    await Promise.all([
-      loadLocations(),
-      loadAutomatedListings()
-    ]);
+    await loadLocations();
     renderScoringRules();
     renderSourceView();
     alert("評分規則已重設，人工與自動物件已重新計算");
