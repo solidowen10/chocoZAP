@@ -2187,7 +2187,6 @@ function renderAutomatedListings() {
           <button class="small-btn ${x.status === "reviewing" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','reviewing')">${x.status === "reviewing" ? "✓ 已審查" : "開始審查"}</button>
           <button class="small-btn ${x.status === "shortlisted" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','shortlisted')">${x.status === "shortlisted" ? "✓ 已加入候選" : "加入候選"}</button>
           <button class="small-btn ${x.status === "rejected" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','rejected')">${x.status === "rejected" ? "✓ 已淘汰" : "淘汰"}</button>
-          <button class="small-btn ${x.location_review_id ? "active" : "primary"}" onclick="promoteToLocationReview('${sourceId(x)}')">${x.location_review_id ? "✓ 已送 Location Review" : "送到 Location Review"}</button>
 
         </div>
       </div>
@@ -2300,18 +2299,6 @@ async function patchAutomatedStatus(encodedIdentity, status) {
     renderAutomatedListings();
   } catch (err) {
     alert(err.message || "更新失敗");
-  }
-}
-
-async function promoteToLocationReview(encodedIdentity) {
-  const { source, sourceListingId } = splitSourceId(encodedIdentity);
-  try {
-    await propertyWriteApi("POST", `/api/property-sourcing/listings/${encodeURIComponent(source)}/${encodeURIComponent(sourceListingId)}/promote`, { status: "shortlisted" });
-    await loadAutomatedListings();
-    renderAutomatedListings();
-    alert("已送到 Location Review");
-  } catch (err) {
-    alert(err.message || "送出失敗");
   }
 }
 
