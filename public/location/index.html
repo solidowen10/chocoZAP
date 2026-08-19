@@ -1943,21 +1943,35 @@ function ping(value) {
   return value == null ? "待確認" : `${value} 坪`;
 }
 
+function meters(value) {
+  return value == null ? "待確認" : `${Number(value).toLocaleString("zh-TW")} 公尺`;
+}
+
 function nearbyPlaceTypeLabel(value) {
   return value === "mrt" ? "捷運站" : "一般地標";
+}
+
+function nearbyPlaceLabel(x = {}) {
+  return x.nearby_place_type === "mrt" ? "最近捷運" : "附近地點";
+}
+
+function nearbyPlaceName(x = {}) {
+  const place = String(x.nearby_place || "").trim();
+  if (!place) return "待確認";
+  return x.nearby_place_type === "mrt" && !/站$/.test(place) ? `${place}站` : place;
 }
 
 function renderScoringBreakdown(breakdown = []) {
   const items = new Map((breakdown || []).map(item => [item.key, item]));
   const rows = [
-    ["mrt_distance", "捷運"],
-    ["rent_per_ping", "每坪月租"],
-    ["area", "坪數"]
-  ].map(([key, label]) => {
+    ["mrt_distance", "捷運距離", 4],
+    ["rent_per_ping", "每坪月租", 3],
+    ["area", "坪數", 3]
+  ].map(([key, label, fallbackMax]) => {
     const item = items.get(key) || {};
     const reason = item.reason || "待確認";
     const points = item.points == null ? 0 : item.points;
-    const max = item.max == null ? "—" : item.max;
+    const max = item.max == null ? fallbackMax : item.max;
     return `${escapeHtml(label)} | ${escapeHtml(reason)} | ${escapeHtml(points)}/${escapeHtml(max)}`;
   }).join("<br>");
 
@@ -2166,21 +2180,15 @@ function renderAutomatedListings() {
         <div class="auto-meta">
           <div><small>租金</small><strong>${twd(x.rent_twd)}</strong></div>
           <div><small>總坪數</small><strong>${ping(x.listed_area_ping)}</strong></div>
-          <div><small>人工可用坪數</small><strong>${x.usable_area_ping == null ? "待確認" : ping(x.usable_area_ping)}</strong></div>
           <div><small>樓層</small><strong>${escapeHtml(x.floor_text || "待確認")}</strong></div>
           <div><small>地址</small><strong>${escapeHtml(x.address || "待確認")}</strong></div>
-          <div><small>附近地點</small><strong>${escapeHtml(x.nearby_place || "待確認")}${x.nearby_place ? ` <span class="pill">${nearbyPlaceTypeLabel(x.nearby_place_type)}</span>` : ""}</strong></div>
-          <div><small>距離（公尺）</small><strong>${x.nearby_distance_m == null ? "待確認" : escapeHtml(Number(x.nearby_distance_m).toLocaleString("zh-TW"))}</strong></div>
-          <div><small>捷運</small><strong>${escapeHtml(x.mrt_station || "待確認")}${x.mrt_minutes == null ? "" : ` · ${escapeHtml(x.mrt_minutes)} 分`}</strong></div>
-          <div><small>類型</small><strong>${escapeHtml(x.property_type || "待確認")}</strong></div>
+          <div><small>${nearbyPlaceLabel(x)}</small><strong>${escapeHtml(nearbyPlaceName(x))}${x.nearby_place && x.nearby_place_type !== "mrt" ? ` <span class="pill">${nearbyPlaceTypeLabel(x.nearby_place_type)}</span>` : ""}</strong></div>
+          <div><small>距離</small><strong>${escapeHtml(meters(x.nearby_distance_m))}</strong></div>
           <div><small>推薦程度</small><strong><span class="pill ${x.recommendation}">${recommendationLabel(x.recommendation)}</span></strong></div>
           <div><small>狀態</small><strong>${statusLabelAuto(x.status)}</strong></div>
         </div>
         <div class="review-line">
           ${renderScoringBreakdown(x.breakdown)}
-          <div class="scorebox"><b>主要風險</b><small>${escapeHtml((x.risks || []).join("；") || "目前未發現明確風險")}</small></div>
-          <div class="scorebox"><b>缺資料</b><small>${escapeHtml((x.missing_data || []).join("、") || "目前無重大缺資料")}</small></div>
-          <div class="scorebox"><b>下一步</b><small>${escapeHtml(x.next_step || "補齊資料後評估")}</small></div>
         </div>
         <div class="card-actions">
           <a class="small-btn" href="${escapeHtml(x.url)}" target="_blank" rel="noopener noreferrer">查看 591</a>
