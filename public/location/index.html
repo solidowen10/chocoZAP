@@ -2168,7 +2168,7 @@ function renderAutomatedListings() {
           <button class="small-btn ${x.status === "reviewing" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','reviewing')">${x.status === "reviewing" ? "✓ 已審查" : "開始審查"}</button>
           <button class="small-btn ${x.status === "shortlisted" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','shortlisted')">${x.status === "shortlisted" ? "✓ 已加入候選" : "加入候選"}</button>
           <button class="small-btn ${x.status === "rejected" ? "active" : ""}" onclick="patchAutomatedStatus('${sourceId(x)}','rejected')">${x.status === "rejected" ? "✓ 已淘汰" : "淘汰"}</button>
-          <button class="small-btn primary" onclick="promoteToLocationReview('${sourceId(x)}')">送到 Location Review</button>
+
         </div>
       </div>
     </article>
@@ -2283,21 +2283,6 @@ async function patchAutomatedStatus(encodedIdentity, status) {
   }
 }
 
-async function promoteToLocationReview(encodedIdentity) {
-  const { source, sourceListingId } = splitSourceId(encodedIdentity);
-  try {
-    await propertyWriteApi("POST", `/api/property-sourcing/listings/${encodeURIComponent(source)}/${encodeURIComponent(sourceListingId)}/promote`, { status: "shortlisted" });
-    await Promise.all([loadLocations(), loadAutomatedListings()]);
-    sourceView = "manual";
-    document.querySelectorAll(".source-tab")
-      .forEach(btn => btn.classList.toggle("active", btn.dataset.sourceView === "manual"));
-    renderSourceView();
-    alert("已送到 Location Review");
-  } catch (err) {
-    alert(err.message || "送出失敗");
-  }
-}
-
 function boolChecked(value) {
   return value ? "checked" : "";
 }
@@ -2310,54 +2295,270 @@ function renderScoringRules() {
   document.getElementById("rulesForm").innerHTML = `
     <div class="rule-section">
       <h2>推薦門檻</h2>
-      <div class="field">
-        <label>score ≥</label>
-        <input id="ruleThreshold" type="number" min="0" max="10" step="0.5" value="${cfg("recommendation_threshold", 8)}">
+      <div class="sync-note">
+        滿分 10 分。捷運距離 4 分、每坪月租 3 分、坪數 3 分。
       </div>
+
       <div class="field">
-        <label>優先城市（逗號分隔）</label>
-        <input id="rulePreferredCities" value="${escapeHtml((cfg("city_location.preferred_cities", []) || []).join(","))}">
+        <label>推薦看屋分數 ≥</label>
+        <input
+          id="ruleThreshold"
+          type="number"
+          min="0"
+          max="10"
+          step="0.5"
+          value="${cfg("recommendation_threshold", 8)}"
+        >
       </div>
-      <div class="field">
-        <label>優先行政區（逗號分隔）</label>
-        <input id="rulePreferredDistricts" value="${escapeHtml((cfg("city_location.preferred_districts", []) || []).join(","))}">
-      </div>
-      <div class="field"><label>城市分數</label><input id="ruleCityPoints" type="number" min="0" max="2" step="0.1" value="${cfg("city_location.city_points", 1)}"></div>
-      <div class="field"><label>行政區加分</label><input id="ruleDistrictBonus" type="number" min="0" max="2" step="0.1" value="${cfg("city_location.district_bonus_points", 1)}"></div>
     </div>
 
     <div class="rule-section">
-      <h2>總坪數</h2>
-      <div class="field"><label>好物件總坪數下限</label><input id="ruleAreaGoodMin" type="number" min="0" value="${cfg("area.good_min_ping", 80)}"></div>
-      <div class="field"><label>好物件總坪數上限</label><input id="ruleAreaGoodMax" type="number" min="0" value="${cfg("area.good_max_ping", 160)}"></div>
-      <div class="field"><label>可接受總坪數下限</label><input id="ruleAreaOkMin" type="number" min="0" value="${cfg("area.ok_min_ping", 60)}"></div>
-      <div class="field"><label>好物件總坪數分數</label><input id="ruleAreaGoodPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.good_points", 3)}"></div>
-      <div class="field"><label>可接受總坪數分數</label><input id="ruleAreaOkPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.ok_points", 1.5)}"></div>
-      <div class="field"><label>偏小總坪數分數</label><input id="ruleAreaLowPoints" type="number" min="0" max="3" step="0.1" value="${cfg("area.low_points", 0)}"></div>
+      <h2>捷運距離 · 4 分</h2>
+
+      <div class="sync-note">
+        優先使用有效捷運公尺距離；沒有距離時使用步行分鐘。
+      </div>
+
+      <div class="field">
+        <label>最佳距離上限（公尺）</label>
+        <input
+          id="ruleMrtGoodMax"
+          type="number"
+          min="0"
+          step="50"
+          value="${cfg("mrt_distance.good_max_m", 500)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受距離上限（公尺）</label>
+        <input
+          id="ruleMrtOkMax"
+          type="number"
+          min="0"
+          step="50"
+          value="${cfg("mrt_distance.ok_max_m", 1000)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>最佳步行時間上限（分鐘）</label>
+        <input
+          id="ruleMrtGoodMaxMinutes"
+          type="number"
+          min="0"
+          step="1"
+          value="${cfg("mrt_distance.good_max_minutes", 5)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受步行時間上限（分鐘）</label>
+        <input
+          id="ruleMrtOkMaxMinutes"
+          type="number"
+          min="0"
+          step="1"
+          value="${cfg("mrt_distance.ok_max_minutes", 10)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>最佳距離分數</label>
+        <input
+          id="ruleMrtGoodPoints"
+          type="number"
+          min="0"
+          max="4"
+          step="0.5"
+          value="${cfg("mrt_distance.good_points", 4)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受距離分數</label>
+        <input
+          id="ruleMrtOkPoints"
+          type="number"
+          min="0"
+          max="4"
+          step="0.5"
+          value="${cfg("mrt_distance.ok_points", 2)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>超過距離上限分數</label>
+        <input
+          id="ruleMrtFarPoints"
+          type="number"
+          min="0"
+          max="4"
+          step="0.5"
+          value="${cfg("mrt_distance.far_points", 0)}"
+        >
+      </div>
     </div>
 
     <div class="rule-section">
-      <h2>租金</h2>
-      <div class="field"><label>租金佳上限 TWD</label><input id="ruleRentGoodMax" type="number" value="${cfg("rent.good_max_twd", 120000)}"></div>
-      <div class="field"><label>租金可接受上限 TWD</label><input id="ruleRentOkMax" type="number" value="${cfg("rent.ok_max_twd", 200000)}"></div>
-      <div class="field"><label>租金佳分數</label><input id="ruleRentGoodPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.good_points", 2.5)}"></div>
-      <div class="field"><label>租金可接受分數</label><input id="ruleRentOkPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.ok_points", 1.2)}"></div>
-      <div class="field"><label>租金偏高分數</label><input id="ruleRentHighPoints" type="number" min="0" max="2.5" step="0.1" value="${cfg("rent.high_points", 0)}"></div>
+      <h2>每坪月租 · 3 分</h2>
+
+      <div class="sync-note">
+        計算方式：月租 ÷ 刊登總坪數。
+      </div>
+
+      <div class="field">
+        <label>最佳每坪月租上限 TWD</label>
+        <input
+          id="ruleRentPerPingGoodMax"
+          type="number"
+          min="0"
+          step="100"
+          value="${cfg("rent_per_ping.good_max_twd", 5000)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受每坪月租上限 TWD</label>
+        <input
+          id="ruleRentPerPingOkMax"
+          type="number"
+          min="0"
+          step="100"
+          value="${cfg("rent_per_ping.ok_max_twd", 6000)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>最佳每坪月租分數</label>
+        <input
+          id="ruleRentPerPingGoodPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("rent_per_ping.good_points", 3)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受每坪月租分數</label>
+        <input
+          id="ruleRentPerPingOkPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("rent_per_ping.ok_points", 1.5)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>超過上限分數</label>
+        <input
+          id="ruleRentPerPingHighPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("rent_per_ping.high_points", 0)}"
+        >
+      </div>
     </div>
 
     <div class="rule-section">
-      <h2>樓層</h2>
-      <div class="field"><label>純 1F 分數</label><input id="ruleFloor1F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_floor_points", 2.5)}"></div>
-      <div class="field"><label>1F+2F 分數</label><input id="ruleFloor1F2F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_plus_second_points", 2)}"></div>
-      <div class="field"><label>1F+B1 分數</label><input id="ruleFloor1FB1" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.ground_plus_basement_points", 1.8)}"></div>
-      <div class="field"><label>2F 分數</label><input id="ruleFloor2F" type="number" min="0" max="2.5" step="0.1" value="${cfg("floor.second_floor_points", 1)}"></div>
+      <h2>坪數 · 3 分</h2>
+
+      <div class="field">
+        <label>最佳坪數下限</label>
+        <input
+          id="ruleAreaGoodMin"
+          type="number"
+          min="0"
+          step="1"
+          value="${cfg("area.good_min_ping", 80)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>最佳坪數上限</label>
+        <input
+          id="ruleAreaGoodMax"
+          type="number"
+          min="0"
+          step="1"
+          value="${cfg("area.good_max_ping", 160)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受坪數下限</label>
+        <input
+          id="ruleAreaOkMin"
+          type="number"
+          min="0"
+          step="1"
+          value="${cfg("area.ok_min_ping", 60)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>最佳坪數分數</label>
+        <input
+          id="ruleAreaGoodPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("area.good_points", 3)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>可接受坪數分數</label>
+        <input
+          id="ruleAreaOkPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("area.ok_points", 1.5)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>低於可接受坪數分數</label>
+        <input
+          id="ruleAreaLowPoints"
+          type="number"
+          min="0"
+          max="3"
+          step="0.5"
+          value="${cfg("area.low_points", 0)}"
+        >
+      </div>
     </div>
 
     <div class="rule-section">
       <h2>儲存</h2>
-      <div class="sync-note">總分上限：城市 / 區域 2.0、總坪數 3.0、租金 2.5、樓層 2.5。</div>
-      <button class="small-btn primary" onclick="saveScoringRules()">儲存評分規則</button>
-      <button class="small-btn" onclick="resetScoringRules()">Reset to Defaults</button>
+
+      <div class="sync-note">
+        此規則同時套用到「人工蒐集」與「自動蒐集」。
+      </div>
+
+      <button
+        class="small-btn primary"
+        onclick="saveScoringRules()"
+      >
+        儲存評分規則
+      </button>
+
+      <button
+        class="small-btn"
+        onclick="resetScoringRules()"
+      >
+        重設預設值
+      </button>
     </div>
   `;
 }
@@ -2367,22 +2568,30 @@ function numberInput(id) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function csvInput(id) {
-  return document.getElementById(id).value
-    .split(",")
-    .map(x => x.trim())
-    .filter(Boolean);
-}
-
 function readScoringRulesForm() {
   return {
+    version: 2,
+
     recommendation_threshold: numberInput("ruleThreshold"),
-    city_location: {
-      preferred_cities: csvInput("rulePreferredCities"),
-      preferred_districts: csvInput("rulePreferredDistricts"),
-      city_points: numberInput("ruleCityPoints"),
-      district_bonus_points: numberInput("ruleDistrictBonus")
+
+    mrt_distance: {
+      good_max_m: numberInput("ruleMrtGoodMax"),
+      ok_max_m: numberInput("ruleMrtOkMax"),
+      good_max_minutes: numberInput("ruleMrtGoodMaxMinutes"),
+      ok_max_minutes: numberInput("ruleMrtOkMaxMinutes"),
+      good_points: numberInput("ruleMrtGoodPoints"),
+      ok_points: numberInput("ruleMrtOkPoints"),
+      far_points: numberInput("ruleMrtFarPoints")
     },
+
+    rent_per_ping: {
+      good_max_twd: numberInput("ruleRentPerPingGoodMax"),
+      ok_max_twd: numberInput("ruleRentPerPingOkMax"),
+      good_points: numberInput("ruleRentPerPingGoodPoints"),
+      ok_points: numberInput("ruleRentPerPingOkPoints"),
+      high_points: numberInput("ruleRentPerPingHighPoints")
+    },
+
     area: {
       good_min_ping: numberInput("ruleAreaGoodMin"),
       good_max_ping: numberInput("ruleAreaGoodMax"),
@@ -2390,19 +2599,6 @@ function readScoringRulesForm() {
       good_points: numberInput("ruleAreaGoodPoints"),
       ok_points: numberInput("ruleAreaOkPoints"),
       low_points: numberInput("ruleAreaLowPoints")
-    },
-    rent: {
-      good_max_twd: numberInput("ruleRentGoodMax"),
-      ok_max_twd: numberInput("ruleRentOkMax"),
-      good_points: numberInput("ruleRentGoodPoints"),
-      ok_points: numberInput("ruleRentOkPoints"),
-      high_points: numberInput("ruleRentHighPoints")
-    },
-    floor: {
-      ground_floor_points: numberInput("ruleFloor1F"),
-      ground_plus_second_points: numberInput("ruleFloor1F2F"),
-      ground_plus_basement_points: numberInput("ruleFloor1FB1"),
-      second_floor_points: numberInput("ruleFloor2F")
     }
   };
 }
@@ -2411,8 +2607,12 @@ async function saveScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", readScoringRulesForm());
     scoringConfig = data.scoringConfig;
-    await loadLocations();
+    await Promise.all([
+      loadLocations(),
+      loadAutomatedListings()
+    ]);
     renderScoringRules();
+    renderSourceView();
     alert("評分規則已儲存，人工與自動物件已重新計算");
   } catch (err) {
     alert(err.message || "儲存失敗");
@@ -2424,8 +2624,12 @@ async function resetScoringRules() {
   try {
     const data = await propertyWriteApi("POST", "/api/property-sourcing/scoring-config", { reset: true });
     scoringConfig = data.scoringConfig;
-    await loadLocations();
+    await Promise.all([
+      loadLocations(),
+      loadAutomatedListings()
+    ]);
     renderScoringRules();
+    renderSourceView();
     alert("評分規則已重設，人工與自動物件已重新計算");
   } catch (err) {
     alert(err.message || "重設失敗");

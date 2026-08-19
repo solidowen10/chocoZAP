@@ -270,18 +270,30 @@ function testNearbyPlaceClassifier() {
   assert.strictEqual(scoreListings([{ nearby_place: '昆陽' }], defaultScoringConfig())[0].nearby_place_type, 'mrt');
 }
 
-function testListedAreaDrivesScoring() {
-  const listing = normalizeListing({
+function scoringListing(patch = {}) {
+  return {
     source: '591',
-    source_listing_id: '21778960',
-    url: 'https://rent.591.com.tw/21778960',
+    source_listing_id: 'scoring-test',
+    url: 'https://rent.591.com.tw/scoring-test',
     city: '台北市',
     district: '南港區',
+    rent_twd: 100000,
+    listed_area_ping: 100,
+    nearby_place: '昆陽',
+    nearby_place_type: 'mrt',
+    nearby_distance_m: 300,
+    floor_text: '1F/5F',
+    ...patch,
+  };
+}
+
+function testListedAreaDrivesScoring() {
+  const listing = normalizeListing(scoringListing({
     rent_twd: 89000,
     listed_area_ping: 90,
     usable_area_ping: null,
-    floor_text: '1F/15F',
-  });
+  }));
+
   const scored = scoreListing(listing, defaultScoringConfig());
 
   assert.strictEqual(listing.usable_area_ping, null);
@@ -290,104 +302,241 @@ function testListedAreaDrivesScoring() {
   assert(!scored.missing_data.includes('使用面積'));
 }
 
+function testMrtDistanceScoring() {
+  const config = defaultScoringConfig();
+
+  const near = scoreListing(scoringListing({
+    nearby_distance_m: 500,
+  }), config);
+
+  const middle = scoreListing(scoringListing({
+    nearby_distance_m: 863,
+  }), config);
+
+  const far = scoreListing(scoringListing({
+    nearby_distance_m: 1200,
+  }), config);
+
+  assert.strictEqual(
+    near.breakdown.find((item) => item.key === 'mrt_distance').points,
+    4,
+  );
+
+  assert.strictEqual(
+    middle.breakdown.find((item) => item.key === 'mrt_distance').points,
+    2,
+  );
+
+  assert.strictEqual(
+    far.breakdown.find((item) => item.key === 'mrt_distance').points,
+    0,
+  );
+
+  assert(near.score > middle.score);
+  assert(middle.score > far.score);
+}
+
+function testMrtMinutesFallbackScoring() {
+  const config = defaultScoringConfig();
+
+  assert.strictEqual(config.mrt_distance.good_max_minutes, 5);
+  assert.strictEqual(config.mrt_distance.ok_max_minutes, 10);
+
+  const good = scoreListing(scoringListing({
+    nearby_place: null,
+    nearby_place_type: null,
+    nearby_distance_m: null,
+    mrt_station: '昆陽',
+    mrt_minutes: 5,
+  }), config);
+
+  const acceptable = scoreListing(scoringListing({
+    nearby_place: null,
+    nearby_place_type: null,
+    nearby_distance_m: null,
+    mrt_station: '昆陽',
+    mrt_minutes: 8,
+  }), config);
+
+  const far = scoreListing(scoringListing({
+    nearby_place: null,
+    nearby_place_type: null,
+    nearby_distance_m: null,
+    mrt_station: '昆陽',
+    mrt_minutes: 12,
+  }), config);
+
+  assert.strictEqual(
+    good.breakdown.find((item) => item.key === 'mrt_distance').points,
+    4,
+  );
+
+  assert.strictEqual(
+    acceptable.breakdown.find((item) => item.key === 'mrt_distance').points,
+    2,
+  );
+
+  assert.strictEqual(
+    far.breakdown.find((item) => item.key === 'mrt_distance').points,
+    0,
+  );
+
+  assert(good.score > acceptable.score);
+  assert(acceptable.score > far.score);
+}
+
+function testMrtDistanceTakesPriorityOverMinutes() {
+  const scored = scoreListing(scoringListing({
+    nearby_distance_m: 800,
+    mrt_station: '昆陽',
+    mrt_minutes: 2,
+  }), defaultScoringConfig());
+
+  const mrt = scored.breakdown.find((item) => item.key === 'mrt_distance');
+
+  assert.strictEqual(mrt.points, 2);
+  assert(mrt.reason.includes('800 公尺'));
+}
+
+function testNonMrtPlaceDoesNotCountAsMrtDistance() {
+  const scored = scoreListing(scoringListing({
+    nearby_place: '三姐姐早餐店',
+    nearby_place_type: 'place',
+    nearby_distance_m: 200,
+  }), defaultScoringConfig());
+
+  const mrt = scored.breakdown.find((item) => item.key === 'mrt_distance');
+
+  assert.strictEqual(mrt.points, 0);
+  assert.strictEqual(mrt.status, 'missing');
+  assert(scored.missing_data.includes('捷運距離'));
+}
+
+function testRentPerPingScoring() {
+  const config = defaultScoringConfig();
+
+  const good = scoreListing(scoringListing({
+    rent_twd: 80000,
+    listed_area_ping: 80,
+  }), config);
+
+  const acceptable = scoreListing(scoringListing({
+    rent_twd: 550000,
+    listed_area_ping: 100,
+  }), config);
+
+  const expensive = scoreListing(scoringListing({
+    rent_twd: 650000,
+    listed_area_ping: 100,
+  }), config);
+
+  assert.strictEqual(
+    good.breakdown.find((item) => item.key === 'rent_per_ping').points,
+    3,
+  );
+
+  assert.strictEqual(
+    acceptable.breakdown.find((item) => item.key === 'rent_per_ping').points,
+    1.5,
+  );
+
+  assert.strictEqual(
+    expensive.breakdown.find((item) => item.key === 'rent_per_ping').points,
+    0,
+  );
+}
+
 function testScoringChangesWhenConfigChanges() {
-  const listing = {
-    source: '591',
-    source_listing_id: '1',
-    url: 'https://rent.591.com.tw/1',
-    city: '台北市',
-    district: '南港區',
-    rent_twd: 150000,
-    listed_area_ping: 90,
-    usable_area_ping: 90,
-    mrt_minutes: 4,
-    floor_text: '1F/15F',
-    signage: '2面看板',
-    pedestrian_flow: '人流多',
-    zoning_permit: '商業區可',
-  };
+  const listing = scoringListing({
+    rent_twd: 550000,
+    listed_area_ping: 100,
+  });
 
   const base = defaultScoringConfig();
+
   const strictRent = {
     ...base,
-    rent: {
-      ...base.rent,
-      good_max_twd: 80000,
-      ok_max_twd: 90000,
-      good_points: 1.5,
-      ok_points: 0.4,
+    rent_per_ping: {
+      ...base.rent_per_ping,
+      good_max_twd: 4000,
+      ok_max_twd: 5000,
+      good_points: 3,
+      ok_points: 1.5,
       high_points: 0,
     },
   };
 
   const normalScore = scoreListing(listing, base).score;
   const strictScore = scoreListing(listing, strictRent).score;
+
   assert.notStrictEqual(normalScore, strictScore);
   assert(normalScore > strictScore);
 }
 
 function testRecommendationThresholdWorks() {
-  const listing = {
-    source: '591',
-    source_listing_id: '2',
-    url: 'https://rent.591.com.tw/2',
-    city: '台北市',
-    district: '南港區',
-    rent_twd: 150000,
-    listed_area_ping: 100,
-    usable_area_ping: 100,
-    mrt_minutes: 3,
-    floor_text: '1F/15F',
-    signage: '2面看板',
-    pedestrian_flow: '人流多',
-    zoning_permit: '商業區可',
-  };
+  const listing = scoringListing();
 
   const lowThreshold = {
     ...defaultScoringConfig(),
     recommendation_threshold: 8,
   };
+
   const highThreshold = {
     ...defaultScoringConfig(),
-    recommendation_threshold: 9.5,
+    recommendation_threshold: 10,
   };
 
-  assert.strictEqual(scoreListing(listing, lowThreshold).recommendation, 'recommend_viewing');
-  assert.notStrictEqual(scoreListing(listing, highThreshold).recommendation, 'recommend_viewing');
+  assert.strictEqual(
+    scoreListing(listing, lowThreshold).recommendation,
+    'recommend_viewing',
+  );
+
+  assert.strictEqual(
+    scoreListing(listing, highThreshold).recommendation,
+    'recommend_viewing',
+  );
+
+  const reducedListing = scoringListing({
+    nearby_distance_m: 800,
+  });
+
+  assert.strictEqual(
+    scoreListing(reducedListing, lowThreshold).recommendation,
+    'recommend_viewing',
+  );
+
+  assert.notStrictEqual(
+    scoreListing(reducedListing, highThreshold).recommendation,
+    'recommend_viewing',
+  );
 }
 
 function testScoreListingsDeterministic() {
-  const listings = [{
-    source: '591',
-    source_listing_id: '3',
-    url: 'https://rent.591.com.tw/3',
-    city: '台北市',
-    district: '松山區',
-    rent_twd: 100000,
-    listed_area_ping: 85,
-    usable_area_ping: 85,
-    mrt_minutes: 5,
-    floor_text: '1F/5F',
-    signage: '1面',
-    pedestrian_flow: '人流多',
-    zoning_permit: '商業區可',
-  }];
+  const listings = [
+    scoringListing({
+      source_listing_id: '3',
+      nearby_distance_m: 450,
+      rent_twd: 100000,
+      listed_area_ping: 85,
+    }),
+  ];
+
   const config = defaultScoringConfig();
 
-  assert.deepStrictEqual(scoreListings(listings, config), scoreListings(listings, config));
+  assert.deepStrictEqual(
+    scoreListings(listings, config),
+    scoreListings(listings, config),
+  );
 }
 
 function testUnifiedMaxIsExactlyTen() {
-  const listing = {
-    city: '台北市',
-    district: '南港區',
-    listed_area_ping: 100,
-    rent_twd: 100000,
-    floor_text: '1F/5F',
-  };
-  const scoring = scoreListing(listing, defaultScoringConfig());
+  const scoring = scoreListing(
+    scoringListing(),
+    defaultScoringConfig(),
+  );
 
   assert.strictEqual(scoring.score, 10);
+
   assert.strictEqual(
     scoring.breakdown.reduce((sum, item) => sum + item.max, 0),
     10,
@@ -395,13 +544,7 @@ function testUnifiedMaxIsExactlyTen() {
 }
 
 function testUsableAreaDoesNotAffectScore() {
-  const listing = {
-    city: '台北市',
-    district: '南港區',
-    listed_area_ping: 100,
-    rent_twd: 100000,
-    floor_text: '1F/5F',
-  };
+  const listing = scoringListing();
 
   assert.strictEqual(
     scoreListing({ ...listing, usable_area_ping: 20 }).score,
@@ -409,21 +552,18 @@ function testUsableAreaDoesNotAffectScore() {
   );
 }
 
-function testResearchFieldsDoNotAffectNumericScore() {
-  const listing = {
-    city: '台北市',
-    district: '南港區',
-    listed_area_ping: 100,
-    rent_twd: 100000,
-    floor_text: '1F/5F',
-  };
-  const baseScore = scoreListing(listing, defaultScoringConfig()).score;
+function testOldResearchFieldsDoNotAffectNumericScore() {
+  const listing = scoringListing();
+
+  const baseScore = scoreListing(
+    listing,
+    defaultScoringConfig(),
+  ).score;
+
   const researchedScore = scoreListing({
     ...listing,
     mrt_minutes: 1,
     mrt_station: '民權西路',
-    nearby_place: '三姐姐早餐店',
-    nearby_distance_m: 517,
     address: '中山區-中山北路二段',
     signage: '2面看板',
     pedestrian_flow: '人流多',
@@ -442,24 +582,51 @@ function testManualAdapterMatchesAutomatedScoringField() {
     areaPing: 100,
     rent: 'NT$100,000',
     floor: '1F/5F',
+    station: '昆陽',
+    mrt: '步行 5 分鐘',
   };
+
   const automated = {
     city: '台北市',
     district: '南港區',
     listed_area_ping: 100,
     rent_twd: 100000,
     floor_text: '1F/5F',
+    mrt_station: '昆陽',
+    mrt_minutes: 5,
   };
+
   const adapted = manualLocationToScoringListing(manual);
 
   assert.strictEqual(adapted.city, automated.city);
   assert.strictEqual(adapted.district, automated.district);
-  assert.strictEqual(adapted.listed_area_ping, automated.listed_area_ping);
-  assert.strictEqual(scoreListing(adapted, defaultScoringConfig()).score, scoreListing(automated, defaultScoringConfig()).score);
+  assert.strictEqual(adapted.mrt_station, automated.mrt_station);
+  assert.strictEqual(adapted.mrt_minutes, automated.mrt_minutes);
+  assert.strictEqual(
+    adapted.listed_area_ping,
+    automated.listed_area_ping,
+  );
+
+  assert.strictEqual(
+    scoreListing(adapted, defaultScoringConfig()).score,
+    scoreListing(automated, defaultScoringConfig()).score,
+  );
+
+  const explicit = manualLocationToScoringListing({
+    ...manual,
+    station: '昆陽',
+    mrt: '步行 5 分鐘',
+    mrt_station: '明德',
+    mrt_minutes: 4,
+  });
+
+  assert.strictEqual(explicit.mrt_station, '明德');
+  assert.strictEqual(explicit.mrt_minutes, 4);
 }
 
 function testConfigChangeAffectsManualAndAutomatedScores() {
   const config = defaultScoringConfig();
+
   const strictAreaConfig = {
     ...config,
     area: {
@@ -471,6 +638,7 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
       low_points: 0,
     },
   };
+
   const manual = {
     region: '台北',
     address: '台北市南港區經園街',
@@ -478,6 +646,7 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
     rent: 'NT$100,000',
     floor: '1F/5F',
   };
+
   const automated = {
     city: '台北市',
     district: '南港區',
@@ -486,9 +655,20 @@ function testConfigChangeAffectsManualAndAutomatedScores() {
     floor_text: '1F/5F',
   };
 
-  assert.strictEqual(scoreManualLocation(manual, config).aiScore, scoreListing(automated, config).score);
-  assert.strictEqual(scoreManualLocation(manual, strictAreaConfig).aiScore, scoreListing(automated, strictAreaConfig).score);
-  assert.notStrictEqual(scoreManualLocation(manual, config).aiScore, scoreManualLocation(manual, strictAreaConfig).aiScore);
+  assert.strictEqual(
+    scoreManualLocation(manual, config).aiScore,
+    scoreListing(automated, config).score,
+  );
+
+  assert.strictEqual(
+    scoreManualLocation(manual, strictAreaConfig).aiScore,
+    scoreListing(automated, strictAreaConfig).score,
+  );
+
+  assert.notStrictEqual(
+    scoreManualLocation(manual, config).aiScore,
+    scoreManualLocation(manual, strictAreaConfig).aiScore,
+  );
 }
 
 testUpsertPreventsDuplicates();
@@ -496,13 +676,19 @@ testBusinessTypePipeline();
 testCrawlerReimportPreservesHumanFields();
 testCurrentSheetMembershipFiltersListingsWithoutDeletingHistory();
 testNearbyPlaceClassifier();
+
 testListedAreaDrivesScoring();
+testMrtDistanceScoring();
+testMrtMinutesFallbackScoring();
+testMrtDistanceTakesPriorityOverMinutes();
+testNonMrtPlaceDoesNotCountAsMrtDistance();
+testRentPerPingScoring();
 testScoringChangesWhenConfigChanges();
 testRecommendationThresholdWorks();
 testScoreListingsDeterministic();
 testUnifiedMaxIsExactlyTen();
 testUsableAreaDoesNotAffectScore();
-testResearchFieldsDoNotAffectNumericScore();
+testOldResearchFieldsDoNotAffectNumericScore();
 testManualAdapterMatchesAutomatedScoringField();
 testConfigChangeAffectsManualAndAutomatedScores();
 
