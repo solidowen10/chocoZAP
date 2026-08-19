@@ -619,7 +619,15 @@
       root.querySelector("a[href*='business.591.com.tw/rent/']");
 
     if (isBusinessCard) {
-      const businessTitle = root.querySelector("a.title")?.innerText?.trim();
+      const businessTitleLink = root.querySelector(
+        ".item-info-title a[title], a.title",
+      );
+      const businessTitle = normalizeWhitespace(
+        businessTitleLink?.getAttribute("title") ||
+        businessTitleLink?.innerText ||
+        "",
+      );
+
       if (businessTitle) {
         return businessTitle;
       }
