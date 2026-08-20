@@ -1205,6 +1205,7 @@ h1{font-size:34px;margin:8px 0 4px}
   }
 }
 
+.auto-region-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.auto-region-row .tabs{margin-bottom:0}.shortlist-sheet-btn{flex:0 0 auto;width:auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;margin:0;border:1px solid #ddd;border-radius:9px;background:#fff;color:#333;font-size:13px;font-weight:800;box-shadow:none}.shortlist-sheet-btn span{color:#999;font-size:11px;font-weight:600}.shortlist-sheet-btn:hover{background:#f7f7f5;border-color:#cfcfcf}.shortlist-sheet-btn:disabled{opacity:.55;cursor:not-allowed}@media(max-width:700px){.auto-region-row{flex-wrap:wrap;align-items:flex-start}.auto-region-row .tabs{width:100%}.auto-region-row .shortlist-sheet-btn{margin-top:8px;margin-left:0;margin-bottom:18px}}
 </style>
 </head>
 <body>
@@ -1293,11 +1294,9 @@ h1{font-size:34px;margin:8px 0 4px}
     </div>
     <div class="control-panel">
 
-      <div class="tabs" id="autoRegionTabs"></div>
+      <div class="auto-region-row"><div class="tabs" id="autoRegionTabs"></div><button class="sync-btn shortlist-sheet-btn" id="shortlistSyncBtn" onclick="syncShortlistSheet()" hidden>↻ 同步候選清單 <span>Google Sheet</span></button></div>
 
       <div class="toolbar" id="autoFilters"></div>
-
-      <button class="sync-btn" id="shortlistSyncBtn" onclick="syncShortlistSheet()" hidden>更新候選清單到 Google Sheet</button>
 
       <div class="summary">
         <div class="stat queue-stat auto-queue-stat" data-auto-status=""><b id="autoCountAll">0</b><span>全部</span></div>
@@ -2079,7 +2078,7 @@ function refreshShortlistSyncButton() {
   btn.hidden = !visible;
   if (!visible) return;
   btn.disabled = shortlistSheetSyncing;
-  btn.textContent = shortlistSheetSyncing ? "更新中..." : "更新候選清單到 Google Sheet";
+  btn.innerHTML = shortlistSheetSyncing ? "更新中..." : '↻ 同步候選清單 <span>Google Sheet</span>';
 }
 
 function renderAutoRegionTabs() {
