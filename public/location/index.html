@@ -1297,6 +1297,8 @@ h1{font-size:34px;margin:8px 0 4px}
 
       <div class="toolbar" id="autoFilters"></div>
 
+      <button class="sync-btn" id="shortlistSyncBtn" onclick="syncShortlistSheet()" hidden>更新候選清單到 Google Sheet</button>
+
       <div class="summary">
         <div class="stat queue-stat auto-queue-stat" data-auto-status=""><b id="autoCountAll">0</b><span>全部</span></div>
         <div class="stat queue-stat auto-queue-stat" data-auto-status="new"><b id="autoCountNew">0</b><span>新物件</span></div>
@@ -1391,6 +1393,7 @@ const autoFilters = {
   listedAreaMin: "",
   scoreMin: ""
 };
+let shortlistSheetSyncing = false;
 
 async function loadLocations() {
   const grid = document.getElementById("grid");
@@ -2069,6 +2072,16 @@ function updateAutoFilter(key, value) {
   renderAutomatedListings();
 }
 
+function refreshShortlistSyncButton() {
+  const btn = document.getElementById("shortlistSyncBtn");
+  if (!btn) return;
+  const visible = autoFilters.status === "shortlisted";
+  btn.hidden = !visible;
+  if (!visible) return;
+  btn.disabled = shortlistSheetSyncing;
+  btn.textContent = shortlistSheetSyncing ? "更新中..." : "更新候選清單到 Google Sheet";
+}
+
 function renderAutoRegionTabs() {
   const tabs = document.getElementById("autoRegionTabs");
   if (!tabs) return;
@@ -2167,6 +2180,8 @@ function renderAutomatedListings() {
     summaryList.filter(x => x.status === "shortlisted").length;
   document.getElementById("autoCountRejected").textContent =
     summaryList.filter(x => ["rejected","archived"].includes(x.status)).length;
+
+  refreshShortlistSyncButton();
 
   document.getElementById("autoGrid").innerHTML = filtered.map(x => `
     <article class="card listing-card">
@@ -2281,6 +2296,23 @@ async function syncPropertySheet() {
       btn.disabled = false;
     }
     alert(err.message || "同步失敗");
+  }
+}
+
+async function syncShortlistSheet() {
+  shortlistSheetSyncing = true;
+  refreshShortlistSyncButton();
+
+  try {
+    const data = await propertyWriteApi("POST", "/api/property-sourcing/shortlist-sheet-sync", {});
+    await loadAutomatedListings();
+    renderAutomatedListings();
+    alert(`候選清單已更新：新增 ${data.created || 0}、更新 ${data.updated || 0}，共 ${data.total || 0} 筆`);
+  } catch (err) {
+    alert(err.message || "更新候選清單失敗");
+  } finally {
+    shortlistSheetSyncing = false;
+    refreshShortlistSyncButton();
   }
 }
 

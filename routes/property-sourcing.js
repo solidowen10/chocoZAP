@@ -11,6 +11,7 @@ const {
   listingIdentities,
   normalizeListing,
   normalizeHumanFields,
+  buildShortlistSheetSyncPlan,
   applyCurrentSheetListingIds,
   filterListingsByCurrentSheetIds,
   scoreListings,
@@ -18,7 +19,12 @@ const {
   upsertListings,
   listingToLocationReviewItem,
 } = require('../lib/propertySourcing');
-const { readSheetRows } = require('../lib/googleSheets');
+const {
+  appendSheetValues,
+  readSheetRows,
+  readSheetValues,
+  updateSheetValues,
+} = require('../lib/googleSheets');
 
 const router = express.Router();
 
@@ -27,6 +33,7 @@ const STORE_FILE = path.join(DATA_DIR, 'property-sourcing.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'property-scoring-config.json');
 const LOCATION_REPORT_FILE = path.join(DATA_DIR, 'location-report.json');
 const DEFAULT_SHEET_TAB = '自動蒐集';
+const SHORTLIST_SHEET_TAB = '候選清單';
 
 function ensureDataDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -224,6 +231,54 @@ router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, r
     console.error('[property-sourcing sheet-sync]', error);
     return res.status(500).json({
       error: 'sheet_sync_failed',
+      message: error.message,
+    });
+  }
+});
+
+router.post('/api/property-sourcing/shortlist-sheet-sync', requireSyncToken, async (req, res) => {
+  try {
+    const store = readStore();
+    const config = readConfig();
+    const shortlisted = (store.listings || []).filter((listing) =>
+      normalizeListing(listing).status === 'shortlisted',
+    );
+    const scored = scoreListings(shortlisted, config);
+    const values = await readSheetValues(propertySourcingSheetId(), SHORTLIST_SHEET_TAB, 'A:T');
+    const now = new Date().toISOString();
+    const plan = buildShortlistSheetSyncPlan(scored, values, { now, config });
+
+    for (const update of plan.updates) {
+      await updateSheetValues(
+        propertySourcingSheetId(),
+        SHORTLIST_SHEET_TAB,
+        `A${update.rowNumber}:N${update.rowNumber}`,
+        [update.values],
+      );
+    }
+
+    if (plan.appendRows.length) {
+      await appendSheetValues(
+        propertySourcingSheetId(),
+        SHORTLIST_SHEET_TAB,
+        plan.appendRows,
+        'A:T',
+      );
+    }
+
+    return res.json({
+      ok: true,
+      sheet: SHORTLIST_SHEET_TAB,
+      shortlisted: plan.shortlisted,
+      created: plan.created,
+      updated: plan.updated,
+      total: plan.total,
+      updatedAt: now,
+    });
+  } catch (error) {
+    console.error('[property-sourcing shortlist-sheet-sync]', error);
+    return res.status(500).json({
+      error: 'shortlist_sheet_sync_failed',
       message: error.message,
     });
   }
