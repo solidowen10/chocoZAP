@@ -15,12 +15,17 @@ const {
   applyCurrentSheetListingIds,
   filterListingsByCurrentSheetIds,
   scoreListings,
+  scoreListing,
   scoreManualLocations,
   upsertListings,
   listingToLocationReviewItem,
 } = require('../lib/propertySourcing');
 const {
   appendSheetValues,
+  batchUpdateSheetValues,
+  ensureSheetExists,
+  formatShortlistSheet,
+  orderSheetsByNames,
   readSheetRows,
   readSheetValues,
   updateSheetValues,
@@ -110,6 +115,66 @@ function propertySourcingSheetTab() {
   return process.env.PROPERTY_SOURCING_SHEET_TAB || DEFAULT_SHEET_TAB;
 }
 
+function shortlistSheetTabForCity(city = '') {
+  const value = String(city || '');
+
+  if (/台北|臺北/.test(value)) return '候選_台北';
+  if (/新北/.test(value)) return '候選_新北';
+  if (/桃園/.test(value)) return '候選_桃園';
+  if (/新竹/.test(value)) return '候選_新竹';
+  if (/台中|臺中/.test(value)) return '候選_台中';
+  if (/台南|臺南/.test(value)) return '候選_台南';
+  if (/高雄/.test(value)) return '候選_高雄';
+
+  return '候選_其他';
+}
+
+const SHORTLIST_SHEET_HEADERS = [
+  'source',
+  '591 ID',
+  '物件名稱',
+  '591 URL',
+  '城市',
+  '行政區',
+  '地址',
+  '月租',
+  '總坪數',
+  '每坪月租',
+  '每坪月租（日圓）',
+  '最近捷運',
+  '捷運距離M',
+  '初篩分數',
+  '加入候選時間',
+  '聯繫狀態',
+  '聯繫日期',
+  '房東／仲介回覆',
+  '可否看屋',
+  '看屋日期',
+  '房仲備註',
+  'TWD→JPY 匯率',
+  '匯率更新時間',
+];
+
+async function fetchTwdJpyRate() {
+  const response = await fetch('https://open.er-api.com/v6/latest/TWD');
+
+  if (!response.ok) {
+    throw new Error(`FX rate request failed: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  const rate = Number(data?.rates?.JPY);
+
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('Invalid TWD/JPY exchange rate');
+  }
+
+  return {
+    rate,
+    updatedAt: data.time_last_update_utc || new Date().toISOString(),
+  };
+}
+
 function scoredPayload(store = readStore(), config = readConfig()) {
   const scoringConfig = mergeScoringConfig(config);
   const sourceListings = filterListingsByCurrentSheetIds(store.listings || [], store.currentSheetListingIds);
@@ -154,6 +219,26 @@ function importListings(rawListings, options = {}) {
   const now = options.now || new Date().toISOString();
   const result = upsertListings(store.listings || [], rawListings || [], {
     now,
+  });
+
+  // Hard-reject underground-only listings during import.
+  // Preserve an explicit human shortlist decision.
+  result.listings = result.listings.map((listing) => {
+    const scoring = scoreListing(listing, readConfig());
+
+    if (
+      scoring.recommendation === 'reject' &&
+      /^(地下樓層|2F 樓層)，直接淘汰$/.test(scoring.next_step) &&
+      listing.status !== 'archived'
+    ) {
+      return normalizeListing({
+        ...listing,
+        status: 'rejected',
+        rejected_reason: scoring.risks[0] || '樓層條件不符',
+      });
+    }
+
+    return listing;
   });
 
   let output = {
@@ -236,47 +321,215 @@ router.post('/api/property-sourcing/sheet-sync', requireSyncToken, async (req, r
   }
 });
 
+async function migrateLegacyShortlistSheet(spreadsheetId, sheetName) {
+  const values = await readSheetValues(spreadsheetId, sheetName, 'A:W');
+
+  if (!values.length) return;
+
+  const header = values[0] || [];
+
+  // Old schema:
+  // J 每坪月租
+  // K 最近捷運
+  // ...
+  // N 加入候選時間
+  // O:T broker fields
+  const isLegacy =
+    header[9] === '每坪月租' &&
+    header[10] === '最近捷運';
+
+  if (!isLegacy) return;
+
+  const migrated = values.map((row, index) => {
+    if (index === 0) return SHORTLIST_SHEET_HEADERS;
+
+    return [
+      row[0] || '',   // A source
+      row[1] || '',   // B 591 ID
+      row[2] || '',   // C title
+      row[3] || '',   // D URL
+      row[4] || '',   // E city
+      row[5] || '',   // F district
+      row[6] || '',   // G address
+      row[7] || '',   // H rent
+      row[8] || '',   // I area
+      row[9] || '',   // J rent/ping TWD
+
+      '',             // K rent/ping JPY (filled by sync)
+
+      row[10] || '',  // L MRT
+      row[11] || '',  // M MRT distance
+      row[12] || '',  // N score
+      row[13] || '',  // O added at
+
+      row[14] || '',  // P contact status
+      row[15] || '',  // Q contact date
+      row[16] || '',  // R reply
+      row[17] || '',  // S viewing possible
+      row[18] || '',  // T viewing date
+      row[19] || '',  // U broker notes
+
+      '',             // V rate
+      '',             // W rate updated time
+    ];
+  });
+
+  await updateSheetValues(
+    spreadsheetId,
+    sheetName,
+    `A1:W${migrated.length}`,
+    migrated,
+  );
+}
+
 router.post('/api/property-sourcing/shortlist-sheet-sync', requireSyncToken, async (req, res) => {
   try {
     const store = readStore();
     const config = readConfig();
-    const shortlisted = (store.listings || []).filter((listing) =>
-      normalizeListing(listing).status === 'shortlisted',
+
+    const shortlisted = (store.listings || []).filter(
+      (listing) => normalizeListing(listing).status === 'shortlisted',
     );
+
     const scored = scoreListings(shortlisted, config);
-    const values = await readSheetValues(propertySourcingSheetId(), SHORTLIST_SHEET_TAB, 'A:T');
     const now = new Date().toISOString();
-    const plan = buildShortlistSheetSyncPlan(scored, values, { now, config });
 
-    for (const update of plan.updates) {
-      await updateSheetValues(
-        propertySourcingSheetId(),
-        SHORTLIST_SHEET_TAB,
-        `A${update.rowNumber}:N${update.rowNumber}`,
-        [update.values],
-      );
+    // One FX snapshot per sync.
+    const fx = await fetchTwdJpyRate();
+
+    // --------------------------------------------------------
+    // Total sheet + city sheets
+    // --------------------------------------------------------
+
+    const grouped = new Map();
+
+    // Total sheet always receives every shortlisted listing.
+    grouped.set(SHORTLIST_SHEET_TAB, scored);
+
+    for (const listing of scored) {
+      const sheetName = shortlistSheetTabForCity(listing.city);
+
+      if (!grouped.has(sheetName)) {
+        grouped.set(sheetName, []);
+      }
+
+      grouped.get(sheetName).push(listing);
     }
 
-    if (plan.appendRows.length) {
-      await appendSheetValues(
+    const tabs = [];
+
+    for (const [sheetName, listings] of grouped.entries()) {
+      await ensureSheetExists(
         propertySourcingSheetId(),
-        SHORTLIST_SHEET_TAB,
-        plan.appendRows,
-        'A:T',
+        sheetName,
       );
+
+      // Safely migrate the old "候選清單" schema before syncing.
+      await migrateLegacyShortlistSheet(
+        propertySourcingSheetId(),
+        sheetName,
+      );
+
+      const existingValues = await readSheetValues(
+        propertySourcingSheetId(),
+        sheetName,
+        'A:W',
+      );
+
+      const plan = buildShortlistSheetSyncPlan(
+        listings,
+        existingValues,
+        {
+          now,
+          config,
+          twdJpyRate: fx.rate,
+          fxUpdatedAt: fx.updatedAt,
+        },
+      );
+
+      const batchUpdates = [
+        {
+          range: 'A1:W1',
+          values: [SHORTLIST_SHEET_HEADERS],
+        },
+      ];
+
+      for (const update of plan.updates) {
+        batchUpdates.push(
+          {
+            range: `A${update.rowNumber}:O${update.rowNumber}`,
+            values: [update.values],
+          },
+          {
+            range: `V${update.rowNumber}:W${update.rowNumber}`,
+            values: [update.fxValues],
+          },
+        );
+      }
+
+      await batchUpdateSheetValues(
+        propertySourcingSheetId(),
+        sheetName,
+        batchUpdates,
+      );
+
+      if (plan.appendRows.length) {
+        await appendSheetValues(
+          propertySourcingSheetId(),
+          sheetName,
+          plan.appendRows,
+          'A:W',
+        );
+      }
+
+      await formatShortlistSheet(
+        propertySourcingSheetId(),
+        sheetName,
+      );
+
+      tabs.push({
+        sheet: sheetName,
+        shortlisted: plan.shortlisted,
+        created: plan.created,
+        updated: plan.updated,
+        total: plan.total,
+      });
     }
+
+    // --------------------------------------------------------
+    // North -> south order
+    // --------------------------------------------------------
+
+    await orderSheetsByNames(
+      propertySourcingSheetId(),
+      [
+        '候選清單',
+        '候選_台北',
+        '候選_新北',
+        '候選_桃園',
+        '候選_新竹',
+        '候選_台中',
+        '候選_台南',
+        '候選_高雄',
+        '候選_其他',
+      ],
+    );
 
     return res.json({
       ok: true,
-      sheet: SHORTLIST_SHEET_TAB,
-      shortlisted: plan.shortlisted,
-      created: plan.created,
-      updated: plan.updated,
-      total: plan.total,
+      shortlisted: scored.length,
+
+      // Counts for city tabs only would double-count total sheet,
+      // so expose per-tab details as the authoritative breakdown.
+      tabs,
+
+      twdJpyRate: fx.rate,
+      fxUpdatedAt: fx.updatedAt,
       updatedAt: now,
     });
   } catch (error) {
     console.error('[property-sourcing shortlist-sheet-sync]', error);
+
     return res.status(500).json({
       error: 'shortlist_sheet_sync_failed',
       message: error.message,

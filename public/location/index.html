@@ -1205,7 +1205,43 @@ h1{font-size:34px;margin:8px 0 4px}
   }
 }
 
-.auto-region-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.auto-region-row .tabs{margin-bottom:0}.shortlist-sheet-btn{flex:0 0 auto;width:auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;margin:0;border:1px solid #ddd;border-radius:9px;background:#fff;color:#333;font-size:13px;font-weight:800;box-shadow:none}.shortlist-sheet-btn span{color:#999;font-size:11px;font-weight:600}.shortlist-sheet-btn:hover{background:#f7f7f5;border-color:#cfcfcf}.shortlist-sheet-btn:disabled{opacity:.55;cursor:not-allowed}@media(max-width:700px){.auto-region-row{flex-wrap:wrap;align-items:flex-start}.auto-region-row .tabs{width:100%}.auto-region-row .shortlist-sheet-btn{margin-top:8px;margin-left:0;margin-bottom:18px}}
+.auto-region-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.auto-region-row .tabs{margin-bottom:0}.shortlist-sheet-btn{flex:0 0 auto;width:auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;margin:0;border:1px solid #ddd;border-radius:9px;background:#fff;color:#333;font-size:13px;font-weight:800;box-shadow:none}.shortlist-sheet-btn span{color:#999;font-size:11px;font-weight:600}.shortlist-sheet-btn:hover{background:#f7f7f5;border-color:#cfcfcf}.shortlist-sheet-btn:disabled{opacity:.55;cursor:not-allowed}@media(max-width:700px){.auto-region-row{flex-wrap:wrap;align-items:flex-start}.auto-region-row .tabs{width:100%}.auto-region-row .shortlist-sheet-btn{margin-top:8px;margin-left:0;margin-bottom:18px}}
+
+.shortlist-sheet-btn .sync-main-label{
+  white-space:nowrap;
+}
+
+.shortlist-sheet-btn .sync-sub-label{
+  color:#999;
+  font-size:11px;
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.shortlist-sheet-btn.is-syncing{
+  min-width:154px;
+}
+
+.sync-spinner{
+  width:13px;
+  height:13px;
+  flex:0 0 13px;
+  display:inline-block;
+  box-sizing:border-box;
+  border:2px solid #d8d8d4;
+  border-top-color:#333;
+  border-radius:50%;
+  animation:shortlist-spin .7s linear infinite;
+}
+
+@keyframes shortlist-spin{
+  to{transform:rotate(360deg)}
+}
+
+.sync-success{
+  font-weight:900;
+}
+
 </style>
 </head>
 <body>
@@ -2074,11 +2110,17 @@ function updateAutoFilter(key, value) {
 function refreshShortlistSyncButton() {
   const btn = document.getElementById("shortlistSyncBtn");
   if (!btn) return;
-  const visible = autoFilters.status === "shortlisted";
-  btn.hidden = !visible;
-  if (!visible) return;
+
+  // Always show shortlist sync button in Automated view.
+  btn.hidden = false;
+  btn.style.display = "inline-flex";
+
   btn.disabled = shortlistSheetSyncing;
-  btn.innerHTML = shortlistSheetSyncing ? "更新中..." : '↻ 同步候選清單 <span>Google Sheet</span>';
+  btn.classList.toggle("is-syncing", shortlistSheetSyncing);
+
+  btn.innerHTML = shortlistSheetSyncing
+    ? '<span class="sync-spinner" aria-hidden="true"></span><span class="sync-main-label">同步中...</span><span class="sync-sub-label">Google Sheet</span>'
+    : '<span class="sync-icon">↻</span><span class="sync-main-label">同步候選清單</span><span class="sync-sub-label">Google Sheet</span>';
 }
 
 function renderAutoRegionTabs() {
@@ -2299,15 +2341,50 @@ async function syncPropertySheet() {
 }
 
 async function syncShortlistSheet() {
+  if (shortlistSheetSyncing) return;
+
+  const btn = document.getElementById("shortlistSyncBtn");
+
   shortlistSheetSyncing = true;
-  refreshShortlistSyncButton();
+
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("is-syncing");
+    btn.style.display = "inline-flex";
+    btn.innerHTML =
+      '<span class="sync-spinner" aria-hidden="true"></span><span class="sync-main-label">同步中...</span><span class="sync-sub-label">Google Sheet</span>';
+  }
+
+  // Force one visible paint before the request starts.
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   try {
-    const data = await propertyWriteApi("POST", "/api/property-sourcing/shortlist-sheet-sync", {});
+    const data = await propertyWriteApi(
+      "POST",
+      "/api/property-sourcing/shortlist-sheet-sync",
+      {}
+    );
+
     await loadAutomatedListings();
-    renderAutomatedListings();
-    alert(`候選清單已更新：新增 ${data.created || 0}、更新 ${data.updated || 0}，共 ${data.total || 0} 筆`);
+
+    if (btn) {
+      btn.classList.remove("is-syncing");
+      btn.innerHTML =
+        '<span class="sync-success">✓</span><span class="sync-main-label">同步完成</span><span class="sync-sub-label">Google Sheet</span>';
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    alert("候選清單已同步完成");
   } catch (err) {
+    if (btn) {
+      btn.classList.remove("is-syncing");
+      btn.innerHTML =
+        '<span>!</span><span class="sync-main-label">同步失敗</span><span class="sync-sub-label">Google Sheet</span>';
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
     alert(err.message || "更新候選清單失敗");
   } finally {
     shortlistSheetSyncing = false;
@@ -2787,3 +2864,102 @@ loadLocations();
 </script>
 </body>
 </html>
+
+<style>
+/* Property Radar automated card polish */
+.listing-card{
+  align-items:start;
+}
+
+.listing-card > div:last-child{
+  min-width:0;
+  width:100%;
+}
+
+.listing-card .auto-meta{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+
+.listing-card .auto-meta > div{
+  min-width:0;
+  padding:10px 11px;
+  border:1px solid #e7e7e4;
+  border-radius:10px;
+  background:#fafaf8;
+}
+
+.listing-card .auto-meta small{
+  display:block;
+  margin-bottom:4px;
+  color:#888;
+  font-size:11px;
+  line-height:1.25;
+}
+
+.listing-card .auto-meta strong{
+  display:block;
+  min-width:0;
+  font-size:13px;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+
+.listing-card .auto-meta > div:first-child strong,
+.listing-card .auto-meta > div:nth-child(2) strong,
+.listing-card .auto-meta > div:nth-child(3) strong,
+.listing-card .auto-meta > div:nth-child(4) strong{
+  white-space:nowrap;
+  font-size:12px;
+}
+
+.listing-card .review-line{
+  display:block;
+  width:100%;
+  margin-top:10px;
+}
+
+.listing-card .review-line .scorebox{
+  box-sizing:border-box;
+  width:100%;
+  max-width:none;
+  margin:0;
+  padding:12px 14px;
+  border-radius:10px;
+}
+
+.listing-card .review-line .scorebox b{
+  display:block;
+  margin-bottom:5px;
+}
+
+.listing-card .review-line .scorebox small{
+  display:block;
+  line-height:1.55;
+}
+
+.listing-card .card-actions{
+  margin-top:12px;
+}
+
+@media(max-width:760px){
+  .listing-card .auto-meta{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .listing-card .auto-meta > div:first-child strong,
+  .listing-card .auto-meta > div:nth-child(2) strong,
+  .listing-card .auto-meta > div:nth-child(3) strong,
+  .listing-card .auto-meta > div:nth-child(4) strong{
+    white-space:normal;
+    font-size:13px;
+  }
+
+  .listing-card .review-line{
+    grid-column:1/-1;
+  }
+}
+</style>

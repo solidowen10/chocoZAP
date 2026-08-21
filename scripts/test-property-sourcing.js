@@ -607,9 +607,9 @@ function testShortlistSheetSyncPlan() {
     makeAutomatedListing('103', { status: 'reviewing' }),
   ], config)[0];
   const existingValues = [
-    ['source', '591 ID', '物件名稱', '591 URL', '城市', '行政區', '地址', '月租', '總坪數', '每坪月租', '最近捷運', '捷運距離M', '初篩分數', '加入候選時間', '聯繫狀態', '聯繫日期', '房東／仲介回覆', '可否看屋', '看屋日期', '房仲備註'],
-    ['591', '101', '舊名稱', 'old-url', '台北市', '內湖區', '舊地址', 1, 2, 3, '舊站', 999, 5, existingAddedAt, '已聯繫', '2026-08-12', '會回覆', '可', '2026-08-21', '保留這些欄位'],
-    ['591', '999', '不再候選', 'old-999', '', '', '', '', '', '', '', '', '', '2026-08-02T00:00:00.000Z', 'broker', '', '', '', '', 'keep'],
+    ['source', '591 ID', '物件名稱', '591 URL', '城市', '行政區', '地址', '月租', '總坪數', '每坪月租', '每坪月租（日圓）', '最近捷運', '捷運距離M', '初篩分數', '加入候選時間', '聯繫狀態', '聯繫日期', '房東／仲介回覆', '可否看屋', '看屋日期', '房仲備註', 'TWD→JPY 匯率', '匯率更新時間'],
+    ['591', '101', '舊名稱', 'old-url', '台北市', '內湖區', '舊地址', 1, 2, 3, '', '舊站', 999, 5, existingAddedAt, '已聯繫', '2026-08-12', '會回覆', '可', '2026-08-21', '保留這些欄位', '', ''],
+    ['591', '999', '不再候選', 'old-999', '', '', '', '', '', '', '', '', '', '', '2026-08-02T00:00:00.000Z', 'broker', '', '', '', '', 'keep', '', ''],
   ];
 
   const plan = buildShortlistSheetSyncPlan(
@@ -626,26 +626,30 @@ function testShortlistSheetSyncPlan() {
   const update = plan.updates.find((item) => item.identity === '591:101');
   assert(update);
   assert.strictEqual(update.rowNumber, 2);
-  assert.strictEqual(update.values.length, 14);
+  assert.strictEqual(update.values.length, 15);
   assert.strictEqual(update.values[0], '591');
   assert.strictEqual(update.values[1], '101');
   assert.strictEqual(update.values[9], 1079);
-  assert.strictEqual(update.values[10], '內湖');
-  assert.strictEqual(update.values[11], 322);
-  assert.strictEqual(update.values[12], 10);
-  assert.strictEqual(update.values[13], existingAddedAt);
+  assert.strictEqual(update.values[10], '');
+  assert.strictEqual(update.values[11], '內湖');
+  assert.strictEqual(update.values[12], 322);
+  assert.strictEqual(update.values[13], 10);
+  assert.strictEqual(update.values[14], existingAddedAt);
   assert(!plan.updates.some((item) => item.identity === '591:999'));
   assert(!plan.updates.some((item) => item.identity === '591:103'));
 
   const appended = plan.appendRows[0];
-  assert.strictEqual(appended.length, 20);
+  assert.strictEqual(appended.length, 23);
   assert.strictEqual(appended[0], '591');
   assert.strictEqual(appended[1], '102');
   assert.strictEqual(appended[9], 1000);
-  assert.strictEqual(appended[10], '信義安和');
-  assert.strictEqual(appended[11], '');
-  assert.strictEqual(appended[13], '2026-08-11T11:00:00.000Z');
-  assert.deepStrictEqual(appended.slice(14), ['', '', '', '', '', '']);
+  assert.strictEqual(appended[10], '');
+  assert.strictEqual(appended[11], '信義安和');
+  assert.strictEqual(appended[12], '');
+  assert.strictEqual(appended[14], '2026-08-11T11:00:00.000Z');
+  assert.deepStrictEqual(appended.slice(15, 21), ['', '', '', '', '', '']);
+  assert.strictEqual(appended[21], '');
+  assert.strictEqual(appended[22], now);
 }
 
 function testUnifiedMaxIsExactlyTen() {
