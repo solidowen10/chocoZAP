@@ -76,7 +76,7 @@ PROPERTY_SOURCING_SHEET_TAB=自動蒐集
 The sync endpoint is token-protected in production:
 
 ```bash
-curl -X POST https://gym.selinnaowen.com/api/property-sourcing/sheet-sync \
+curl -X POST https://gym.luruee.com/api/property-sourcing/sheet-sync \
   -H "Authorization: Bearer $LOCATION_SYNC_TOKEN"
 ```
 
